@@ -214,25 +214,29 @@ Projects: {ex.projects_summary or 'None listed'}
             ("system", """You are an expert recruitment evaluator. Given a job description and candidate profiles, 
 score each candidate from 0-100 based on how well they fit the job requirements.
 Consider: relevant skills match, years of experience, education fit, and project relevance.
-Be fair and objective. Return rankings sorted by score descending."""),
+Be fair and objective. Return rankings sorted by score descending.
+IMPORTANT: Return EXACTLY one entry per candidate. Do NOT duplicate any candidate."""),
             ("human", """Job Description:
 {jd_text}
 
 Candidates:
 {candidates}
 
-Score and rank each candidate.""")
+Score and rank each candidate. Return exactly {num_candidates} result(s), one per candidate.""")
         ])
 
         try:
             from schemas import RankingResult
             ranking = invoke_with_fallback(
                 lambda llm: ranking_prompt | llm.with_structured_output(schema=RankingResult),
-                {"jd_text": jd_text, "candidates": candidate_summaries}
+                {"jd_text": jd_text, "candidates": candidate_summaries, "num_candidates": len(accepted_candidates)}
             )
 
-            # Map rankings back to results
-            for rank_idx, scored in enumerate(ranking.rankings, 1):
+            # Map rankings back to results, preventing duplicates
+            already_added: set = set()
+            rank_counter = 0
+
+            for scored in ranking.rankings:
                 # Find matching candidate by name
                 matched_file = None
                 for c in accepted_candidates:
@@ -240,18 +244,41 @@ Score and rank each candidate.""")
                         matched_file = c["filename"]
                         break
 
-                # Fallback: match by index if name matching fails
-                if not matched_file and rank_idx <= len(accepted_candidates):
-                    matched_file = accepted_candidates[rank_idx - 1]["filename"]
+                # Skip if this file was already added (prevents duplicates)
+                if matched_file and matched_file in already_added:
+                    continue
 
-                if matched_file:
+                # Fallback: match by position if name matching fails
+                if not matched_file:
+                    for c in accepted_candidates:
+                        if c["filename"] not in already_added:
+                            matched_file = c["filename"]
+                            break
+
+                if matched_file and matched_file not in already_added:
+                    rank_counter += 1
+                    already_added.add(matched_file)
                     results.append(ResumeResult(
                         filename=matched_file,
                         status="accepted",
                         candidate_name=scored.candidate_name,
-                        rank=rank_idx,
+                        rank=rank_counter,
                         score=scored.score,
                         summary=scored.rationale
+                    ))
+
+            # If any accepted candidates were missed by ranking, add them without score
+            for c in accepted_candidates:
+                if c["filename"] not in already_added:
+                    rank_counter += 1
+                    already_added.add(c["filename"])
+                    results.append(ResumeResult(
+                        filename=c["filename"],
+                        status="accepted",
+                        candidate_name=c["extracted"].candidate_name,
+                        rank=rank_counter,
+                        score=None,
+                        summary="Candidate was accepted but could not be scored."
                     ))
 
         except Exception as e:
