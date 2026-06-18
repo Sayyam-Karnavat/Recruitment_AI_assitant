@@ -1,306 +1,293 @@
-from fastapi import FastAPI , Depends , Form , UploadFile, HTTPException
+"""
+FastAPI server for Resume Screening POC.
+Two endpoints: post a job description, upload & screen resumes.
+"""
+
+from fastapi import FastAPI, UploadFile, HTTPException, File
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse , FileResponse
+from fastapi.responses import JSONResponse, FileResponse
 import logging
-import tempfile
-from langchain_community.chat_message_histories import SQLChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.messages import AIMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.output_parsers import StrOutputParser
+import uuid
 
-from utils import (
-    parse_file , 
-    remove_extra_space , 
-    classify_document , 
-    extract_data_from_resume,
-)
-from database import (
-    create_table , 
-    test_connection , 
-    drop_table,
-    insert_extracted_data,
-    insert_job_description
-)
-from schemas import ChatRequest
-from RAG import VectorStorage
-from llm import (
-    groq_llm_1
-)
-from Database_Agent import SQLAgent
+from langchain_core.prompts import ChatPromptTemplate
+from utils import parse_uploaded_file
+from llm import invoke_with_fallback, get_classifier_chain, get_extractor_chain, get_ranking_chain
+from schemas import ResumeResult
 
-
-import os
-import uvicorn
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="ResumeAI")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app = FastAPI(title="Resume Screening POC")
+app.mount("/static", StaticFiles(directory="Static"), name="static")
 
-vectorStore = VectorStorage()
-sql_agent = SQLAgent()
+# In-memory store for job descriptions (POC - no database needed)
+job_store: dict = {}
 
+
+PLACEHOLDER_JD = """Senior Full Stack Developer - Remote
+
+About the Role:
+We are looking for a Senior Full Stack Developer with 3+ years of experience to join our engineering team. You will be responsible for building and maintaining web applications, collaborating with cross-functional teams, and mentoring junior developers.
+
+Requirements:
+- 3+ years of professional experience in full-stack web development
+- Strong proficiency in Python (FastAPI/Django/Flask) for backend
+- Frontend experience with React.js or Vue.js
+- Experience with relational databases (PostgreSQL, MySQL)
+- Familiarity with cloud services (AWS/GCP/Azure)
+- Experience with Docker and CI/CD pipelines
+- Strong understanding of RESTful API design
+- Git version control
+
+Nice to Have:
+- Experience with TypeScript
+- Knowledge of microservices architecture
+- Experience with Redis, message queues
+- Contributions to open-source projects
+
+What We Offer:
+- Competitive salary
+- Fully remote work
+- Learning & development budget
+- Flexible working hours
+"""
 
 
 @app.get("/", response_class=FileResponse)
 async def serve_frontend():
-    return FileResponse("static/index.html")
-    
-
-# Dependency function to check thread_id
-def check_thread_id(thread_id: str = Form(...)) -> str:
-    if not thread_id or not thread_id.strip():
-        raise HTTPException(status_code=400, detail="Thread ID is required.")
-    return thread_id
+    return FileResponse("Static/index.html")
 
 
-@app.post("/upload_files")
-async def upload_files(
-    file : UploadFile,
-    thread_id :str = Depends(check_thread_id),
-):
-    try :
-        temp_file_path : str | None = None
-        if not file.filename:
-            raise HTTPException(status_code=400 , detail="File is required")
+@app.get("/placeholder-jd")
+async def get_placeholder_jd():
+    """Return placeholder JD text for quick testing."""
+    return JSONResponse({"jd_text": PLACEHOLDER_JD})
 
-        ext = file.filename.rsplit(".", 1)[-1].lower()
-        if ext not in {"pdf", "txt", "docx"}:
-            raise HTTPException(status_code=400, detail=f"Unsupported JD file type: .{ext}")
 
+@app.post("/api/post-job")
+async def api_post_job(body: dict):
+    """HR posts a job description text. Returns a job_id."""
+    jd_text = body.get("jd_text", "").strip()
+    if not jd_text:
+        raise HTTPException(status_code=400, detail="Job description text is required.")
+
+    job_id = str(uuid.uuid4())[:8]
+    job_store[job_id] = {
+        "jd_text": jd_text,
+        "results": []
+    }
+    logger.info(f"[JOB {job_id}] Job description posted ({len(jd_text)} chars)")
+    return JSONResponse({"success": True, "job_id": job_id})
+
+
+@app.post("/api/upload-resumes/{job_id}")
+async def upload_resumes(job_id: str, files: list[UploadFile] = File(...)):
+    """
+    Upload 1-3 resume files, classify, extract, rank against JD.
+    """
+    # Validate job exists
+    if job_id not in job_store:
+        raise HTTPException(status_code=404, detail="Job not found. Post a job description first.")
+
+    # Validate file count
+    if len(files) > 3:
+        raise HTTPException(status_code=400, detail="Maximum 3 files allowed for this POC.")
+    if len(files) == 0:
+        raise HTTPException(status_code=400, detail="At least 1 file is required.")
+
+    jd_text = job_store[job_id]["jd_text"]
+    results: list[ResumeResult] = []
+    accepted_candidates: list[dict] = []  # {filename, extracted_data}
+
+    for file in files:
+        filename = file.filename or "unknown"
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+        # Validate file type
+        if ext not in {"pdf", "docx"}:
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason=f"Unsupported file type: .{ext}. Only PDF and DOCX are accepted."
+            ))
+            continue
+
+        # Read and parse file
         raw_bytes = await file.read()
         if not raw_bytes:
-            raise ValueError("Job description file is empty.")
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason="File is empty."
+            ))
+            continue
 
+        text = parse_uploaded_file(file, raw_bytes)
+        if not text or len(text) < 50:
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason="The uploaded file does not appear to be a valid resume. Could not extract readable content."
+            ))
+            continue
 
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
-        temp_file.write(raw_bytes)
-        temp_file.close()
-        temp_file_path = temp_file.name
-
-        logger.info(f"[THREAD {thread_id}] Temp file created: {temp_file_path}")
-
-        file_text = parse_file(file_path=temp_file_path)
-        file_text = remove_extra_space(text=file_text)
-        
-        # Write the code to check if this is general document or resume file extract resume data and tore
-        document_type = classify_document(text=file_text)
-        if document_type == "resume":
-            logger.info(f"[THREAD {thread_id}] Document type is {document_type}...")
-            extracted_resume_data = extract_data_from_resume(resume_data=file_text)
-
-            candidate_name = str(extracted_resume_data['candidate_name']).lower()
-            formatted_user_data = f'''
-            Candidate name : {candidate_name}
-            Job role of {candidate_name} : {extracted_resume_data['job_role']}
-
-            Location of {candidate_name} : {extracted_resume_data['location']}
-
-            Contact information - info
-                - mail of {candidate_name} : {extracted_resume_data['email_address']}
-                - Contact number - Phone number of {candidate_name} : {extracted_resume_data['contact_number']}
-                - Linked In of {candidate_name} :- {extracted_resume_data['linkedin_url']} 
-            Total experience of {candidate_name} :- {extracted_resume_data['total_experience']}
-
-            '''
-            # Add thread id to the extracted resume data
-            extracted_resume_data.update({
-                "thread_id" : thread_id
-            })
-            # Store the data in database
-            insert_extracted_data(
-                extracted_resume_data=extracted_resume_data
-            )
-            logger.info(f"[THREAD {thread_id}] Inserted data to database ...")
-            vectorStore.store_user_embeddings(
-                thread_id=thread_id,
-                user_data=formatted_user_data
-            )
-            logger.info(f"[THREAD {thread_id}] Inserted data to Vector store  ...")
-        elif document_type =="job_description":
-            logger.info(f"[THREAD {thread_id}] Document type is :- {document_type}...")
-            # Create vector embedding
-            logger.info(f"[THREAD {thread_id}] Parsing document ...")
-            documents = parse_file(file_path=temp_file_path , parsing_for_vector=True)
-            insert_job_description(
-                thread_id=thread_id,
-                job_description=file_text # Using the same file text which was extracted earlier so that we do not need to parse the file again.
-            )
-            logger.info(f"[THREAD {thread_id}] Inserted document to database ...")
-            # Storing job description as user embedding since there is not point of splitting the entire job description 
-            vectorStore.store_user_embeddings(
-                    thread_id=thread_id,
-                    user_data=file_text
-                )
-            logger.info(f"[THREAD {thread_id}] Storing data to vector store ...")
-        else:
-            logger.info(f"[THREAD {thread_id}] Document type is :- {document_type}...")
-            documents = parse_file(file_path=temp_file_path , parsing_for_vector=True)
-
-            vectorStore.store_general_embeddings(
-                thread_id=thread_id,
-                documents=documents
-            )
-        logger.info(f"[THREAD {thread_id}] File parsed successfully ...")
-        return JSONResponse({
-            "success" : True,
-            "message" : "File upload successfull ..."
-        })
-    except Exception as e :
-        logger.error(f"[THREAD:{thread_id}] Error uploading files :- {str(e)}")
-
-        return JSONResponse({
-            "success" : True,
-            "message" : f"Error uploading file :- {e}"
-        })
-
-@app.post("/chat")
-async def chat(request : ChatRequest):
-    try:
-        if not request.thread_id:
-            raise HTTPException(status_code=400 , detail="Thread id missing ...")
-        logger.info(f"[THREAD:{request.thread_id}] Retireving history ..")
-        history_store = SQLChatMessageHistory(
-            session_id=request.thread_id,
-            connection=f"sqlite:///{os.environ['CHAT_HISTORY_DIR']}/chat_history.db"
-        )
-
-        # Update the history for Human message
-        history_store.add_user_message(request.user_query)
-
-        full_history = history_store.messages  # List[BaseMessage]
-        short_history = full_history[-10:] if len(full_history) > 10 else full_history
-        history_str = "\n".join([f"Human: {m.content}\nAI: {m.content}" if isinstance(m, AIMessage) else f"Human: {m.content}" for m in short_history])
-        
-        try:
-            logger.info(f"[THREAD:{request.thread_id}] generating SQL query ..")
-            # Write code for RAG retireval and database retrieval
-            sql_query = sql_agent.generate_sql_query(
-                thread_id=request.thread_id,
-                chat_history=history_str,
-                user_query=request.user_query
-            )
-
-            logger.info(f"[THREAD:{request.thread_id}] Executing query :- {sql_query}..")
-
-            
-            database_output = sql_agent.execute_sql_query(sql_query=sql_query)
-
-            if database_output:
-                logger.info(f"[THREAD:{request.thread_id}] Information retrieval from database has some data ..")
-            else:
-                database_output = "No relevant information found in database .."
-
-                logger.info(f"[THREAD:{request.thread_id}] Not results found from database ..")
-
-        except Exception as e :
-            logger.error(f"[THREAD:{request.thread_id}] Error retrieving information from databaset :- {str(e)}")
-
-        rag_str = "No relevant documents found from RAG"
-
-        try:
-            logger.info(f"[THREAD:{request.thread_id}] Retrieving information via RAG ..")
-            
-            rewritten_query = vectorStore.rag_query_rewriter(
-                user_query=request.user_query,
-                conversation_history=short_history
-            )
-
-            rag_docs = vectorStore.similarity_search(
-                thread_id=request.thread_id,
-                query=rewritten_query,
-                top_k=4  # you can increase a bit if you want
-            )
-
-            if rag_docs:  # rag_docs is always a list → safe
-                rag_str = "\n\n".join([doc.page_content for doc in rag_docs])
-                logger.info(f"[THREAD:{request.thread_id}] RAG retrieved {len(rag_docs)} chunks")
-            else:
-                logger.info(f"[THREAD:{request.thread_id}] No relevant info found from RAG")
-
-        except Exception as e:
-            logger.error(f"[THREAD:{request.thread_id}] Error retrieving info from RAG: {e}")
-            rag_str = "No relevant documents found from RAG (error occurred)"
-
-
-        
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful Human recruitment assistant. Your job is to study the information provided to you and answer the user queries to your fullest knowledge."),
-            MessagesPlaceholder(variable_name="history"),
-            ("human", """
-            Answer the following user query without revealing the source or knowledge and the extra knowledge retrieved from database and RAG(retrieval augmented generation) and chat history which was provided to you 
-            Use the extra information that was provided to you if they are relevant to answer user query otherwise be honest and answer based on what knowledge you have. 
-            
-            User query :- {input}
-             
-            Database Results:\n{database_output}
-             
-            RAG Results:\n{rag_str}
-             
-            Chat history :- {chat_history}
-            
-            """),
+        # Step 1: Classify - Is this a resume?
+        logger.info(f"[JOB {job_id}] Classifying '{filename}'...")
+        classify_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a document classifier. Determine if the given text is a resume/CV or not.
+A resume typically contains: candidate name, contact info, work experience, skills, education, projects.
+Documents that are NOT resumes: job descriptions, cover letters, articles, invoices, policies, random text."""),
+            ("human", "Classify this document:\n\n{text}\n\nIs this a resume?")
         ])
 
-        chain = prompt | groq_llm_1 | StrOutputParser()
-        logger.info(f"[THREAD:{request.thread_id}] Creating chain ...")
-        chain_with_history = RunnableWithMessageHistory(
-            chain,
-            get_session_history=lambda thread_id: SQLChatMessageHistory(
-                session_id=thread_id,
-                connection=f"sqlite:///{os.environ['CHAT_HISTORY_DIR']}/chat_history"
-            ),
-            input_messages_key="input",  
-            history_messages_key="history"
-        )
-        response = chain_with_history.invoke(
-            {
-                "input": request.user_query,
-                "database_output": str(database_output),
-                "rag_str": rag_str,
-                "chat_history" : short_history
-            },
-            config={"configurable": {"session_id": request.thread_id}}
-        )
-        # Update the history for AI 
-        history_store.add_ai_message(response)
+        try:
+            classification = invoke_with_fallback(
+                lambda llm: classify_prompt | llm.with_structured_output(schema=__import__('schemas', fromlist=['DocumentClassifier']).DocumentClassifier),
+                {"text": text[:3000]}  # Limit text to avoid token issues
+            )
+        except Exception as e:
+            logger.error(f"[JOB {job_id}] Classification failed for '{filename}': {e}")
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason=f"Unable to verify the document. Please check your internet connection and try again."
+            ))
+            continue
 
-        return JSONResponse({"success": True, "message": response}) 
-    except Exception as e :
-        return JSONResponse({
-            "success" : True,
-            "message" : f"Error uploading file :- {e}"
-        })
+        if not classification.is_resume:
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason=f"The uploaded document was not identified as a resume. {classification.reason}"
+            ))
+            continue
 
+        # Step 2: Extract structured data from resume
+        logger.info(f"[JOB {job_id}] Extracting data from '{filename}'...")
+        extract_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert resume parser. Extract structured information from the resume text provided.
+If a field is not found, use a reasonable default or leave it empty."""),
+            ("human", "Extract data from this resume:\n\n{text}")
+        ])
+
+        try:
+            extracted = invoke_with_fallback(
+                lambda llm: extract_prompt | llm.with_structured_output(schema=__import__('schemas', fromlist=['ExtractedResume']).ExtractedResume),
+                {"text": text[:4000]}
+            )
+            accepted_candidates.append({
+                "filename": filename,
+                "extracted": extracted
+            })
+        except Exception as e:
+            logger.error(f"[JOB {job_id}] Extraction failed for '{filename}': {e}")
+            results.append(ResumeResult(
+                filename=filename,
+                status="rejected",
+                rejection_reason=f"Could not process the resume. Please check your connection and try again."
+            ))
+            continue
+
+    # Step 3: Rank accepted candidates against JD
+    if accepted_candidates:
+        logger.info(f"[JOB {job_id}] Ranking {len(accepted_candidates)} candidates...")
+
+        # Build candidate summaries for ranking prompt
+        candidate_summaries = ""
+        for i, c in enumerate(accepted_candidates, 1):
+            ex = c["extracted"]
+            candidate_summaries += f"""
+--- Candidate {i}: {ex.candidate_name} ---
+Current Role: {ex.current_role or 'Not specified'}
+Experience: {ex.total_experience_years} years
+Skills: {ex.skills}
+Education: {ex.education}
+Work Experience: {ex.work_experience_summary}
+Projects: {ex.projects_summary or 'None listed'}
+"""
+
+        ranking_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert recruitment evaluator. Given a job description and candidate profiles, 
+score each candidate from 0-100 based on how well they fit the job requirements.
+Consider: relevant skills match, years of experience, education fit, and project relevance.
+Be fair and objective. Return rankings sorted by score descending."""),
+            ("human", """Job Description:
+{jd_text}
+
+Candidates:
+{candidates}
+
+Score and rank each candidate.""")
+        ])
+
+        try:
+            from schemas import RankingResult
+            ranking = invoke_with_fallback(
+                lambda llm: ranking_prompt | llm.with_structured_output(schema=RankingResult),
+                {"jd_text": jd_text, "candidates": candidate_summaries}
+            )
+
+            # Map rankings back to results
+            for rank_idx, scored in enumerate(ranking.rankings, 1):
+                # Find matching candidate by name
+                matched_file = None
+                for c in accepted_candidates:
+                    if c["extracted"].candidate_name.lower().strip() == scored.candidate_name.lower().strip():
+                        matched_file = c["filename"]
+                        break
+
+                # Fallback: match by index if name matching fails
+                if not matched_file and rank_idx <= len(accepted_candidates):
+                    matched_file = accepted_candidates[rank_idx - 1]["filename"]
+
+                if matched_file:
+                    results.append(ResumeResult(
+                        filename=matched_file,
+                        status="accepted",
+                        candidate_name=scored.candidate_name,
+                        rank=rank_idx,
+                        score=scored.score,
+                        summary=scored.rationale
+                    ))
+
+        except Exception as e:
+            logger.error(f"[JOB {job_id}] Ranking failed: {e}")
+            # If ranking fails, still return accepted candidates without scores
+            for c in accepted_candidates:
+                results.append(ResumeResult(
+                    filename=c["filename"],
+                    status="accepted",
+                    candidate_name=c["extracted"].candidate_name,
+                    score=None,
+                    rank=None,
+                    summary=f"Skills: {c['extracted'].skills[:100]}... (Ranking unavailable)"
+                ))
+
+    # Store results
+    job_store[job_id]["results"] = [r.model_dump() for r in results]
+
+    # Sort: accepted first (by rank), rejected last
+    sorted_results = sorted(
+        [r.model_dump() for r in results],
+        key=lambda x: (0 if x["status"] == "accepted" else 1, x.get("rank") or 999)
+    )
+
+    return JSONResponse({"success": True, "results": sorted_results})
 
 
 if __name__ == "__main__":
-    
-    logger.info(f"GROQ API key 1:- {os.environ['GROQ_API_KEY_1']}")
-    logger.info(f"GROQ API key 1:- {os.environ['GROQ_API_KEY_2']}")
-    
-    os.makedirs(os.environ.get('DATABASE_DIR', ''), exist_ok=True)
-    os.makedirs(os.environ.get('CHAT_HISTORY_DIR', ''), exist_ok=True)
-    os.makedirs(os.environ.get("EMBEDDING_DIR",'') , exist_ok=True)
-
-    test_connection()
-    drop_table()
-    create_table()
-
+    import uvicorn
 
     port = 3333
-    logger.info(f"Starting server on port {port}")
-
+    logger.info(f"Starting Resume Screening POC on port {port}")
     uvicorn.run(
         "server:app",
         host="0.0.0.0",
         port=port,
-        reload=False,
+        reload=True,
         log_level="info"
     )

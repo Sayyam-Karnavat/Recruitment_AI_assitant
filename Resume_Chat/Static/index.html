@@ -3,184 +3,786 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ResumeAI - Smart Recruitment Assistant</title>
-  <link rel="stylesheet" href="static/styles.css" />
+  <title>Resume Screening POC</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --success: #059669;
+      --success-light: #ecfdf5;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --warning: #d97706;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      color: white;
+    }
+
+    .header .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .header .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      font-size: 15px;
+      opacity: 0.85;
+      margin-top: 6px;
+      font-weight: 300;
+    }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-lg);
+      animation: fadeInUp 0.4s ease;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      background: var(--primary-light);
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 4px;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--gray-500);
+      margin-bottom: 20px;
+    }
+
+    /* Textarea */
+    .jd-textarea {
+      width: 100%;
+      min-height: 220px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      line-height: 1.6;
+      color: var(--gray-700);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .jd-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+
+    .jd-textarea::placeholder { color: var(--gray-400); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 11px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 4px rgba(37,99,235,0.3);
+    }
+
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { background: var(--gray-300); box-shadow: none; cursor: not-allowed; transform: none; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--primary);
+      border: 1.5px solid var(--gray-200);
+    }
+
+    .btn-ghost:hover { background: var(--primary-light); border-color: var(--primary); }
+
+    /* Posted JD */
+    .posted-jd { display: none; }
+
+    .jd-post-card {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    .jd-post-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .jd-avatar {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+
+    .jd-poster-name { font-size: 14px; font-weight: 600; color: var(--gray-800); }
+    .jd-poster-meta { font-size: 12px; color: var(--gray-400); }
+
+    .jd-post-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--gray-600);
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    .jd-post-body::-webkit-scrollbar { width: 4px; }
+    .jd-post-body::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 2px; }
+
+    /* Upload section */
+    .upload-section { display: none; }
+
+    .upload-zone {
+      border: 2px dashed var(--gray-300);
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: var(--gray-50);
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .upload-zone .upload-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 12px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: var(--primary);
+    }
+
+    .upload-zone p { font-size: 14px; color: var(--gray-600); font-weight: 500; }
+    .upload-zone .hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; font-weight: 400; }
+
+    /* File list */
+    .file-list { list-style: none; margin: 16px 0; }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+
+    .file-item:hover { background: var(--gray-100); }
+
+    .file-item .file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray-700);
+    }
+
+    .file-item .file-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .file-icon.pdf { background: #fef2f2; color: #dc2626; }
+    .file-icon.docx { background: #eff6ff; color: #2563eb; }
+
+    .file-item .remove-btn {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .file-item .remove-btn:hover { color: var(--danger); background: var(--danger-light); }
+
+    /* Loading */
+    .loading-section { display: none; text-align: center; padding: 48px 20px; }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--gray-200);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-section h3 { font-size: 16px; color: var(--gray-800); margin-bottom: 6px; }
+    .loading-section p { font-size: 13px; color: var(--gray-500); }
+
+    /* Progress steps */
+    .progress-steps {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 24px;
+    }
+
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--gray-400);
+      font-weight: 500;
+    }
+
+    .progress-step.active { color: var(--primary); }
+    .progress-step .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gray-300);
+    }
+    .progress-step.active .dot { background: var(--primary); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Results */
+    .results-section { display: none; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .results-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .result-card {
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .result-card:hover { box-shadow: var(--shadow-md); }
+
+    .result-card.accepted { border-left: 4px solid var(--success); }
+    .result-card.rejected { border-left: 4px solid var(--danger); background: var(--gray-50); }
+
+    .result-rank {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .rank-1 { background: #fef3c7; color: #92400e; }
+    .rank-2 { background: #f3f4f6; color: #374151; }
+    .rank-3 { background: #fed7aa; color: #9a3412; }
+
+    .result-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 2px;
+    }
+
+    .result-filename {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-bottom: 12px;
+    }
+
+    .score-container { margin-bottom: 10px; }
+
+    .score-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .score-bar {
+      height: 8px;
+      background: var(--gray-100);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s ease;
+    }
+
+    .result-rationale {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--gray-600);
+      padding: 10px 12px;
+      background: var(--gray-50);
+      border-radius: 6px;
+    }
+
+    .result-rejected-reason {
+      font-size: 13px;
+      color: var(--danger);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .result-rejected-reason i { margin-top: 2px; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 20px; }
+      .header h1 { font-size: 22px; }
+      .btn-row { flex-direction: column; }
+      .btn-row .btn { width: 100%; justify-content: center; }
+      .progress-steps { flex-direction: column; align-items: center; gap: 8px; }
+    }
+  </style>
 </head>
 <body>
-  <div class="chat-container">
-    <div class="chat-header">
-      <div class="header-info">
-        <i class="fas fa-robot"></i>
-        <div>
-          <h3>ResumeAI Assistant</h3>
-          <span class="status">Online</span>
-        </div>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon"><i class="fas fa-brain"></i></div>
+        <h1>Resume Screener</h1>
       </div>
+      <p>AI-powered candidate screening — Post a job, upload resumes, get instant rankings</p>
     </div>
 
-    <div id="chat-messages" class="chat-messages">
-      <div class="message bot-message">
-        <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="bubble">
-          Hello! I'm your AI recruitment assistant. Upload resumes or job descriptions to get started, then ask me anything about candidates or requirements.
-        </div>
-      </div>
-    </div>
-
-    <div class="chat-input-container">
-      <div class="input-wrapper">
-        <label for="file-upload" class="upload-btn" title="Upload Resume or JD">
-          <i class="fas fa-paperclip"></i>
-          <input type="file" id="file-upload" accept=".pdf,.docx,.txt" />
-        </label>
-
-        <input
-          type="text"
-          id="user-input"
-          placeholder="Type your message here..."
-          autocomplete="off"
-          autofocus
-        />
-
-        <button id="send-btn" class="send-btn">
-          <i class="fas fa-paper-plane"></i>
+    <!-- Step 1: Write JD -->
+    <div class="card" id="jd-section">
+      <div class="section-label"><i class="fas fa-pen-nib"></i> Step 1</div>
+      <div class="section-title">Post a Job Description</div>
+      <div class="section-subtitle">Write or paste your job requirements. Candidates will be evaluated against this.</div>
+      <textarea class="jd-textarea" id="jd-input" placeholder="Describe the role, responsibilities, required skills, experience level, and qualifications..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="use-placeholder-btn">
+          <i class="fas fa-wand-magic-sparkles"></i> Load Sample JD
+        </button>
+        <button class="btn btn-primary" id="post-jd-btn">
+          <i class="fas fa-paper-plane"></i> Post Job
         </button>
       </div>
+    </div>
 
-      <div class="thread-info">
-        Thread ID: <span id="thread-id-display">loading...</span>
+    <!-- Step 2: Posted JD display -->
+    <div class="card posted-jd" id="posted-jd-section">
+      <div class="section-label"><i class="fas fa-check-circle"></i> Job Posted</div>
+      <div class="jd-post-card">
+        <div class="jd-post-header">
+          <div class="jd-avatar"><i class="fas fa-user-tie"></i></div>
+          <div>
+            <div class="jd-poster-name">Hiring Manager</div>
+            <div class="jd-poster-meta">Just now · <i class="fas fa-globe-americas"></i> Public</div>
+          </div>
+        </div>
+        <div class="jd-post-body" id="posted-jd-content"></div>
       </div>
+    </div>
+
+    <!-- Upload section -->
+    <div class="card upload-section" id="upload-section">
+      <div class="section-label"><i class="fas fa-cloud-arrow-up"></i> Step 2</div>
+      <div class="section-title">Upload Candidate Resumes</div>
+      <div class="section-subtitle">Upload up to 3 resumes (PDF or DOCX) to screen against the job description.</div>
+
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-icon"><i class="fas fa-file-arrow-up"></i></div>
+        <p>Drop files here or click to browse</p>
+        <p class="hint">PDF or DOCX · Max 3 files</p>
+      </div>
+      <input type="file" id="file-input" multiple accept=".pdf,.docx" style="display:none;" />
+
+      <ul class="file-list" id="file-list"></ul>
+
+      <button class="btn btn-primary" id="screen-btn" disabled style="width:100%;justify-content:center;">
+        <i class="fas fa-magnifying-glass-chart"></i> Screen Candidates
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="card loading-section" id="loading-section">
+      <div class="loading-spinner"></div>
+      <h3>Screening in Progress</h3>
+      <p>AI is reading resumes and evaluating candidates against the job description</p>
+      <div class="progress-steps">
+        <div class="progress-step active" id="step-classify">
+          <span class="dot"></span> Classifying
+        </div>
+        <div class="progress-step" id="step-extract">
+          <span class="dot"></span> Extracting
+        </div>
+        <div class="progress-step" id="step-rank">
+          <span class="dot"></span> Ranking
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card results-section" id="results-section">
+      <div class="results-header">
+        <h3><i class="fas fa-trophy" style="color:var(--warning);margin-right:8px;"></i>Screening Results</h3>
+        <button class="btn btn-ghost" id="reset-btn" style="padding:8px 16px;font-size:13px;">
+          <i class="fas fa-arrow-rotate-left"></i> Start Over
+        </button>
+      </div>
+      <div id="results-container"></div>
     </div>
   </div>
 
   <script>
-    const API_BASE = "http://localhost:3333";
-    let threadId = "thread_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    const API_BASE = "";
+    let currentJobId = null;
+    let selectedFiles = [];
 
-    document.getElementById("thread-id-display").textContent = threadId;
+    // DOM elements
+    const jdSection = document.getElementById("jd-section");
+    const jdInput = document.getElementById("jd-input");
+    const postJdBtn = document.getElementById("post-jd-btn");
+    const usePlaceholderBtn = document.getElementById("use-placeholder-btn");
+    const postedJdSection = document.getElementById("posted-jd-section");
+    const postedJdContent = document.getElementById("posted-jd-content");
+    const uploadSection = document.getElementById("upload-section");
+    const uploadZone = document.getElementById("upload-zone");
+    const fileInput = document.getElementById("file-input");
+    const fileList = document.getElementById("file-list");
+    const screenBtn = document.getElementById("screen-btn");
+    const loadingSection = document.getElementById("loading-section");
+    const resultsSection = document.getElementById("results-section");
+    const resultsContainer = document.getElementById("results-container");
+    const resetBtn = document.getElementById("reset-btn");
 
-    const messagesContainer = document.getElementById("chat-messages");
-    const userInput = document.getElementById("user-input");
-    const sendBtn = document.getElementById("send-btn");
-    const fileInput = document.getElementById("file-upload");
+    // Load placeholder JD
+    usePlaceholderBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch(`${API_BASE}/placeholder-jd`);
+        const data = await res.json();
+        jdInput.value = data.jd_text;
+        jdInput.focus();
+      } catch (e) {
+        alert("Failed to load sample JD. Is the server running?");
+      }
+    });
 
-    // Auto-scroll to bottom
-    function scrollToBottom() {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+    // Post JD
+    postJdBtn.addEventListener("click", async () => {
+      const text = jdInput.value.trim();
+      if (!text) { alert("Please write a job description first."); return; }
 
-    // Add message to chat
-    function addMessage(content, type = "user") {
-      const messageDiv = document.createElement("div");
-      messageDiv.className = `message ${type}-message`;
-
-      const avatar = document.createElement("div");
-      avatar.className = "avatar";
-      avatar.innerHTML = type === "bot" ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = content;
-
-      messageDiv.appendChild(avatar);
-      messageDiv.appendChild(bubble);
-      messagesContainer.appendChild(messageDiv);
-      scrollToBottom();
-    }
-
-    // Show typing indicator
-    function showTyping() {
-      const typing = document.createElement("div");
-      typing.className = "message bot-message typing";
-      typing.id = "typing-indicator";
-      typing.innerHTML = `
-        <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="bubble">
-          <div class="typing-dots">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-      `;
-      messagesContainer.appendChild(typing);
-      scrollToBottom();
-    }
-
-    function hideTyping() {
-      const typing = document.getElementById("typing-indicator");
-      if (typing) typing.remove();
-    }
-
-    // Handle file upload
-    async function uploadFile(file) {
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("thread_id", threadId);
-
-      addMessage(`Uploading ${file.name}...`, "user");
+      postJdBtn.disabled = true;
+      postJdBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
 
       try {
-        const res = await fetch(`${API_BASE}/upload_files`, {
+        const res = await fetch(`${API_BASE}/api/post-job`, {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jd_text: text })
         });
         const data = await res.json();
-        addMessage(data.message.includes("success") ? `File "${file.name}" uploaded successfully!` : `Error: ${data.message}`, "bot");
-      } catch (err) {
-        addMessage("Failed to upload file. Is the server running?", "bot");
-      }
-    }
-
-    // Handle send message
-    async function sendMessage() {
-      const query = userInput.value.trim();
-      if (!query && !fileInput.files[0]) return;
-
-      if (query) {
-        addMessage(query, "user");
-        userInput.value = "";
-        showTyping();
-
-        try {
-          const res = await fetch(`${API_BASE}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              thread_id: threadId,
-              user_query: query,
-            }),
-          });
-          const data = await res.json();
-          hideTyping();
-          addMessage(data.message || "No response", "bot");
-        } catch (err) {
-          hideTyping();
-          addMessage("Error connecting to server. Is it running on port 3333?", "bot");
+        if (data.success) {
+          currentJobId = data.job_id;
+          postedJdContent.textContent = text;
+          jdSection.style.display = "none";
+          postedJdSection.style.display = "block";
+          uploadSection.style.display = "block";
+        } else {
+          alert("Error: " + (data.detail || "Unknown error"));
         }
+      } catch (e) {
+        alert("Failed to post job. Is the server running on port 3333?");
+      } finally {
+        postJdBtn.disabled = false;
+        postJdBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Job';
       }
+    });
+
+    // File upload interactions
+    uploadZone.addEventListener("click", () => fileInput.click());
+    uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+    uploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove("dragover");
+      handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener("change", () => { handleFiles(fileInput.files); fileInput.value = ""; });
+
+    function handleFiles(files) {
+      for (const file of files) {
+        if (selectedFiles.length >= 3) { alert("Maximum 3 files allowed."); break; }
+        const ext = file.name.split(".").pop().toLowerCase();
+        if (!["pdf", "docx"].includes(ext)) { alert(`"${file.name}" is not supported. Only PDF and DOCX.`); continue; }
+        if (selectedFiles.some(f => f.name === file.name)) continue;
+        selectedFiles.push(file);
+      }
+      renderFileList();
     }
 
-    // Event Listeners
-    sendBtn.addEventListener("click", sendMessage);
+    function renderFileList() {
+      fileList.innerHTML = "";
+      selectedFiles.forEach((file, idx) => {
+        const ext = file.name.split(".").pop().toLowerCase();
+        const li = document.createElement("li");
+        li.className = "file-item";
+        li.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon ${ext}"><i class="fas fa-file-${ext === 'pdf' ? 'pdf' : 'word'}"></i></div>
+            <span>${file.name}</span>
+          </div>
+          <button class="remove-btn" data-idx="${idx}"><i class="fas fa-xmark"></i></button>
+        `;
+        fileList.appendChild(li);
+      });
+      screenBtn.disabled = selectedFiles.length === 0;
+      document.querySelectorAll(".remove-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedFiles.splice(parseInt(btn.dataset.idx), 1);
+          renderFileList();
+        });
+      });
+    }
 
-    userInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+    // Screen candidates
+    screenBtn.addEventListener("click", async () => {
+      if (!currentJobId || selectedFiles.length === 0) return;
+
+      uploadSection.style.display = "none";
+      loadingSection.style.display = "block";
+
+      const formData = new FormData();
+      selectedFiles.forEach(f => formData.append("files", f));
+
+      try {
+        const res = await fetch(`${API_BASE}/api/upload-resumes/${currentJobId}`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        loadingSection.style.display = "none";
+
+        if (data.success) {
+          renderResults(data.results);
+          resultsSection.style.display = "block";
+        } else {
+          alert("Error: " + (data.detail || "Screening failed"));
+          uploadSection.style.display = "block";
+        }
+      } catch (e) {
+        loadingSection.style.display = "none";
+        uploadSection.style.display = "block";
+        alert("Failed to screen resumes. Check your connection and try again.");
       }
     });
 
-    fileInput.addEventListener("change", () => {
-      if (fileInput.files[0]) {
-        uploadFile(fileInput.files[0]);
-        fileInput.value = ""; // Reset input
-      }
-    });
+    function getScoreColor(score) {
+      if (score >= 75) return "var(--success)";
+      if (score >= 50) return "var(--warning)";
+      return "var(--danger)";
+    }
 
-    // Auto-scroll on load
-    scrollToBottom();
+    function renderResults(results) {
+      resultsContainer.innerHTML = "";
+      results.forEach(r => {
+        const div = document.createElement("div");
+        div.className = `result-card ${r.status}`;
+
+        if (r.status === "accepted") {
+          const color = getScoreColor(r.score || 0);
+          const rankClass = r.rank <= 3 ? `rank-${r.rank}` : "";
+          div.innerHTML = `
+            ${r.rank ? `<div class="result-rank ${rankClass}">#${r.rank}</div>` : ""}
+            <div class="result-name">${r.candidate_name || "Unknown Candidate"}</div>
+            <div class="result-filename"><i class="fas fa-file"></i> ${r.filename}</div>
+            ${r.score !== null ? `
+              <div class="score-container">
+                <div class="score-label">
+                  <span>Fit Score</span>
+                  <span style="color:${color};">${r.score}/100</span>
+                </div>
+                <div class="score-bar">
+                  <div class="score-fill" style="width:${r.score}%;background:${color};"></div>
+                </div>
+              </div>
+            ` : ""}
+            ${r.summary ? `<div class="result-rationale">${r.summary}</div>` : ""}
+          `;
+        } else {
+          div.innerHTML = `
+            <div class="result-name" style="color:var(--danger);">
+              <i class="fas fa-circle-xmark"></i> Rejected
+            </div>
+            <div class="result-filename"><i class="fas fa-file"></i> ${r.filename}</div>
+            <div class="result-rejected-reason">
+              <i class="fas fa-info-circle"></i>
+              <span>${r.rejection_reason || "Unknown reason"}</span>
+            </div>
+          `;
+        }
+        resultsContainer.appendChild(div);
+      });
+    }
+
+    // Reset
+    resetBtn.addEventListener("click", () => {
+      currentJobId = null;
+      selectedFiles = [];
+      jdInput.value = "";
+      fileList.innerHTML = "";
+      resultsContainer.innerHTML = "";
+      jdSection.style.display = "block";
+      postedJdSection.style.display = "none";
+      uploadSection.style.display = "none";
+      loadingSection.style.display = "none";
+      resultsSection.style.display = "none";
+      screenBtn.disabled = true;
+    });
   </script>
 </body>
 </html>
