@@ -84,8 +84,9 @@ export default function JobDetail() {
       })
       setBatchId(res.data.batch_id)
       setBatchProgress({ processed: 0, total: res.data.total_files })
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Upload failed')
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } }
+      alert(error.response?.data?.detail || 'Upload failed')
       setUploading(false)
     }
   }, [id])
