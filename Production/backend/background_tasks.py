@@ -87,7 +87,7 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
     # Insert profile
     await cur.execute(
         """INSERT INTO candidate_profiles
-           (candidate_id, name, email, phone, location, current_role, total_experience_years,
+           (candidate_id, prof_name, prof_email, phone, prof_location, role_title, total_experience_years,
             skills, work_experience, education, projects, certifications, achievements)
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
         (

@@ -28,7 +28,7 @@ async def list_candidates(
 
     await cur.execute(
         """SELECT c.id, c.filename, c.status, c.created_at,
-                  cp.name, e.overall_score, e.recommendation
+                  cp.prof_name, e.overall_score, e.recommendation
            FROM candidates c
            LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
            LEFT JOIN evaluations e ON e.candidate_id = c.id
@@ -85,7 +85,7 @@ async def get_candidate_detail(
     # Get profile
     profile_response = None
     await cur.execute(
-        """SELECT name, email, phone, location, current_role, total_experience_years,
+        """SELECT prof_name, prof_email, phone, prof_location, role_title, total_experience_years,
                   skills, work_experience, education, projects, certifications, achievements
            FROM candidate_profiles WHERE candidate_id = %s""",
         (str(candidate_id),)

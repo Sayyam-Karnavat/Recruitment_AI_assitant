@@ -30,8 +30,8 @@ async def export_csv(job_id: UUID, user=Depends(get_current_user), db=Depends(ge
 
     # Get evaluated candidates
     await cur.execute(
-        """SELECT cp.name, e.overall_score, e.recommendation, e.summary,
-                  cp.skills, cp.total_experience_years, cp.email, cp.phone, c.filename
+        """SELECT cp.prof_name, e.overall_score, e.recommendation, e.summary,
+                  cp.skills, cp.total_experience_years, cp.prof_email, cp.phone, c.filename
            FROM candidates c
            JOIN candidate_profiles cp ON cp.candidate_id = c.id
            JOIN evaluations e ON e.candidate_id = c.id
@@ -71,7 +71,7 @@ async def export_pdf(job_id: UUID, user=Depends(get_current_user), db=Depends(ge
 
     # Get evaluated candidates
     await cur.execute(
-        """SELECT cp.name, e.overall_score, e.recommendation, cp.total_experience_years, c.filename
+        """SELECT cp.prof_name, e.overall_score, e.recommendation, cp.total_experience_years, c.filename
            FROM candidates c
            JOIN candidate_profiles cp ON cp.candidate_id = c.id
            JOIN evaluations e ON e.candidate_id = c.id
