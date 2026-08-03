@@ -99,16 +99,6 @@ async def init_db():
     conn = await psycopg.AsyncConnection.connect(settings.DATABASE_URL)
     try:
         async with conn.cursor() as cur:
-            # TEMPORARY: Drop all tables to reset schema (remove after confirmed working)
-            await cur.execute("""
-                DROP TABLE IF EXISTS evaluation_categories CASCADE;
-                DROP TABLE IF EXISTS evaluations CASCADE;
-                DROP TABLE IF EXISTS candidate_profiles CASCADE;
-                DROP TABLE IF EXISTS upload_batches CASCADE;
-                DROP TABLE IF EXISTS candidates CASCADE;
-                DROP TABLE IF EXISTS jobs CASCADE;
-                DROP TABLE IF EXISTS users CASCADE;
-            """)
             await cur.execute(SCHEMA)
         await conn.commit()
     finally:
