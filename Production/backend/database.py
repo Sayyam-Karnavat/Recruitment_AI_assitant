@@ -2,6 +2,7 @@
 Database connection pool using psycopg (async) + table initialization.
 """
 
+import psycopg
 import psycopg_pool
 from config import settings
 
@@ -41,11 +42,11 @@ CREATE TABLE IF NOT EXISTS candidates (
 CREATE TABLE IF NOT EXISTS candidate_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     candidate_id UUID UNIQUE NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-    name VARCHAR(200),
-    email VARCHAR(255),
+    "name" VARCHAR(200),
+    "email" VARCHAR(255),
     phone VARCHAR(50),
-    location VARCHAR(200),
-    current_role VARCHAR(200),
+    "location" VARCHAR(200),
+    "current_role" VARCHAR(200),
     total_experience_years INT DEFAULT 0,
     skills JSONB,
     work_experience JSONB,
@@ -94,9 +95,8 @@ CREATE INDEX IF NOT EXISTS idx_upload_batches_job_id ON upload_batches(job_id);
 
 
 async def init_db():
-    """Create all tables if they don't exist. Safe to run on every startup."""
-    p = await get_pool()
-    async with p.connection() as conn:
+    """Create all tables if they don't exist. Uses a direct connection (not pool)."""
+    async with await psycopg.AsyncConnection.connect(settings.DATABASE_URL) as conn:
         async with conn.cursor() as cur:
             await cur.execute(SCHEMA)
         await conn.commit()
@@ -105,8 +105,10 @@ async def init_db():
 async def get_pool() -> psycopg_pool.AsyncConnectionPool:
     global pool
     if pool is None:
-        pool = psycopg_pool.AsyncConnectionPool(conninfo=settings.DATABASE_URL, min_size=2, max_size=10)
-        await pool.open()
+        pool = psycopg_pool.AsyncConnectionPool(
+            conninfo=settings.DATABASE_URL, min_size=2, max_size=10
+        )
+        await pool.wait()
     return pool
 
 
