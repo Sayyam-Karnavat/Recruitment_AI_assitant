@@ -4,12 +4,11 @@ import { useAuth } from '../hooks/useAuth'
 import { FileText, Loader2 } from 'lucide-react'
 
 export default function Login() {
-  const [isRegister, setIsRegister] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, register } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,11 +17,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      if (isRegister) {
-        await register(email, password)
-      } else {
-        await login(email, password)
-      }
+      await login(email, password)
       navigate('/dashboard')
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } }
@@ -45,10 +40,10 @@ export default function Login() {
 
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-800 mb-1 text-center">
-            {isRegister ? 'Create account' : 'Welcome back'}
+            Welcome
           </h2>
           <p className="text-sm text-slate-500 mb-6 text-center">
-            {isRegister ? 'Sign up to start screening' : 'Sign in to your account'}
+            Sign in or create an account automatically
           </p>
 
           {error && (
@@ -87,18 +82,9 @@ export default function Login() {
               className="w-full py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isRegister ? 'Create Account' : 'Sign In'}
+              Continue
             </button>
           </form>
-
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => { setIsRegister(!isRegister); setError('') }}
-              className="text-sm text-primary hover:underline"
-            >
-              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

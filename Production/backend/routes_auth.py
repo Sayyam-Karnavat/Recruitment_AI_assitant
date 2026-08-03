@@ -35,8 +35,19 @@ async def login(body: UserLogin, db=Depends(get_db)):
     await cur.execute("SELECT id, password_hash FROM users WHERE email = %s", (body.email,))
     row = await cur.fetchone()
 
-    if not row or not verify_password(body.password, row[1]):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    if not row:
+        # Auto-register if user doesn't exist
+        await cur.execute(
+            "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
+            (body.email, hash_password(body.password))
+        )
+        new_row = await cur.fetchone()
+        await conn.commit()
+        token = create_access_token(new_row[0])
+        return TokenResponse(access_token=token)
+
+    if not verify_password(body.password, row[1]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
     token = create_access_token(row[0])
     return TokenResponse(access_token=token)

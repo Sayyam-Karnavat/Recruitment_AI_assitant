@@ -95,11 +95,19 @@ CREATE INDEX IF NOT EXISTS idx_upload_batches_job_id ON upload_batches(job_id);
 
 
 async def init_db():
-    """Create all tables if they don't exist. Uses a direct connection."""
+    """Create all tables if they don't exist. Seeds admin user."""
     conn = await psycopg.AsyncConnection.connect(settings.DATABASE_URL)
     try:
         async with conn.cursor() as cur:
             await cur.execute(SCHEMA)
+            # Seed admin user if not exists
+            await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")
+            if not await cur.fetchone():
+                from auth import hash_password
+                await cur.execute(
+                    "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
+                    ("admin@resumeai.com", hash_password("admin123"))
+                )
         await conn.commit()
     finally:
         await conn.close()
