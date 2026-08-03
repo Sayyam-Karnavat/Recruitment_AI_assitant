@@ -1,13 +1,10 @@
+import json
 from uuid import UUID
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models import User, Job, Candidate, CandidateProfile, Evaluation, EvaluationCategory
 from schemas import CandidateListItem, CandidateDetailResponse, CandidateProfileResponse, EvaluationResponse, EvaluationCategoryResponse
 from auth import get_current_user
 
@@ -17,37 +14,38 @@ router = APIRouter()
 @router.get("/jobs/{job_id}/candidates", response_model=list[CandidateListItem])
 async def list_candidates(
     job_id: UUID,
-    sort_by: Optional[str] = Query("score", regex="^(score|name|date)$"),
+    sort_by: Optional[str] = Query("score", pattern="^(score|name|date)$"),
     recommendation: Optional[str] = Query(None),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
+    conn, cur = db
+
     # Verify job belongs to user
-    result = await db.execute(select(Job).where(Job.id == job_id, Job.user_id == user.id))
-    if not result.scalar_one_or_none():
+    await cur.execute("SELECT id FROM jobs WHERE id = %s AND user_id = %s", (str(job_id), str(user["id"])))
+    if not await cur.fetchone():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
-    stmt = (
-        select(Candidate)
-        .options(selectinload(Candidate.profile), selectinload(Candidate.evaluation))
-        .where(Candidate.job_id == job_id)
+    await cur.execute(
+        """SELECT c.id, c.filename, c.status, c.created_at,
+                  cp.name, e.overall_score, e.recommendation
+           FROM candidates c
+           LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
+           LEFT JOIN evaluations e ON e.candidate_id = c.id
+           WHERE c.job_id = %s""",
+        (str(job_id),)
     )
-    result = await db.execute(stmt)
-    candidates = result.scalars().all()
+    rows = await cur.fetchall()
 
-    items = []
-    for c in candidates:
-        items.append(CandidateListItem(
-            id=c.id,
-            filename=c.filename,
-            status=c.status,
-            name=c.profile.name if c.profile else None,
-            overall_score=c.evaluation.overall_score if c.evaluation else None,
-            recommendation=c.evaluation.recommendation if c.evaluation else None,
-            created_at=c.created_at,
-        ))
+    items = [
+        CandidateListItem(
+            id=r[0], filename=r[1], status=r[2], created_at=r[3],
+            name=r[4], overall_score=r[5], recommendation=r[6]
+        )
+        for r in rows
+    ]
 
-    # Filter by recommendation
+    # Filter
     if recommendation:
         items = [i for i in items if i.recommendation and i.recommendation.lower() == recommendation.lower()]
 
@@ -65,54 +63,66 @@ async def list_candidates(
 @router.get("/candidates/{candidate_id}", response_model=CandidateDetailResponse)
 async def get_candidate_detail(
     candidate_id: UUID,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
-    stmt = (
-        select(Candidate)
-        .options(
-            selectinload(Candidate.profile),
-            selectinload(Candidate.evaluation).selectinload(Evaluation.categories),
-        )
-        .where(Candidate.id == candidate_id)
-    )
-    result = await db.execute(stmt)
-    candidate = result.scalar_one_or_none()
+    conn, cur = db
 
-    if not candidate:
+    # Get candidate
+    await cur.execute(
+        "SELECT id, job_id, filename, status, raw_text, created_at FROM candidates WHERE id = %s",
+        (str(candidate_id),)
+    )
+    c = await cur.fetchone()
+    if not c:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
 
     # Verify ownership through job
-    job_result = await db.execute(select(Job).where(Job.id == candidate.job_id, Job.user_id == user.id))
-    if not job_result.scalar_one_or_none():
+    await cur.execute("SELECT id FROM jobs WHERE id = %s AND user_id = %s", (str(c[1]), str(user["id"])))
+    if not await cur.fetchone():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
+    # Get profile
     profile_response = None
-    if candidate.profile:
-        profile_response = CandidateProfileResponse.model_validate(candidate.profile)
+    await cur.execute(
+        """SELECT name, email, phone, location, current_role, total_experience_years,
+                  skills, work_experience, education, projects, certifications, achievements
+           FROM candidate_profiles WHERE candidate_id = %s""",
+        (str(candidate_id),)
+    )
+    p = await cur.fetchone()
+    if p:
+        profile_response = CandidateProfileResponse(
+            name=p[0], email=p[1], phone=p[2], location=p[3],
+            current_role=p[4], total_experience_years=p[5],
+            skills=p[6], work_experience=p[7], education=p[8],
+            projects=p[9], certifications=p[10], achievements=p[11],
+        )
 
+    # Get evaluation
     evaluation_response = None
-    if candidate.evaluation:
-        categories = [
-            EvaluationCategoryResponse(category=c.category, score=c.score, rationale=c.rationale)
-            for c in candidate.evaluation.categories
-        ]
+    await cur.execute(
+        """SELECT id, overall_score, recommendation, summary, strengths, weaknesses, missing_skills
+           FROM evaluations WHERE candidate_id = %s""",
+        (str(candidate_id),)
+    )
+    e = await cur.fetchone()
+    if e:
+        # Get categories
+        await cur.execute(
+            "SELECT category, score, rationale FROM evaluation_categories WHERE evaluation_id = %s",
+            (str(e[0]),)
+        )
+        cat_rows = await cur.fetchall()
+        categories = [EvaluationCategoryResponse(category=cr[0], score=cr[1], rationale=cr[2]) for cr in cat_rows]
+
         evaluation_response = EvaluationResponse(
-            overall_score=candidate.evaluation.overall_score,
-            recommendation=candidate.evaluation.recommendation,
-            summary=candidate.evaluation.summary,
-            strengths=candidate.evaluation.strengths,
-            weaknesses=candidate.evaluation.weaknesses,
-            missing_skills=candidate.evaluation.missing_skills,
+            overall_score=e[1], recommendation=e[2], summary=e[3],
+            strengths=e[4], weaknesses=e[5], missing_skills=e[6],
             categories=categories,
         )
 
     return CandidateDetailResponse(
-        id=candidate.id,
-        filename=candidate.filename,
-        status=candidate.status,
-        raw_text=candidate.raw_text,
-        created_at=candidate.created_at,
-        profile=profile_response,
-        evaluation=evaluation_response,
+        id=c[0], filename=c[2], status=c[3], raw_text=c[4], created_at=c[5],
+        profile=profile_response, evaluation=evaluation_response,
     )

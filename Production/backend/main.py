@@ -1,18 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from config import settings
+from database import get_pool, close_pool, init_db
 from routes_auth import router as auth_router
 from routes_jobs import router as jobs_router
 from routes_upload import router as upload_router
 from routes_candidates import router as candidates_router
 from routes_export import router as export_router
 
-app = FastAPI(title="Resume Shortlisting Platform", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: open pool + create tables
+    await get_pool()
+    await init_db()
+    yield
+    # Shutdown: close connection pool
+    await close_pool()
+
+
+app = FastAPI(title="Resume Shortlisting Platform", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
