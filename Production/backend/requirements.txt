@@ -32,7 +32,6 @@ lxml==6.1.1
 orjson==3.11.9
 ormsgpack==1.12.2
 packaging==26.2
-passlib==1.7.4
 pillow==12.3.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
