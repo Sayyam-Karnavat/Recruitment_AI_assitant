@@ -3,12 +3,11 @@ __pycache__
 .env
 *.pdf
 *.docx
-Uploads/
+Production/uploads/
 *.zip
 *.db
 *.db-shm
 *.db-wal
-*.json
 *.parquet
 *.csv
 *.arrow
@@ -23,3 +22,9 @@ AI_Model/
 *.incomplete
 *.log
 Screening-AI/Hugging_Face/*
+
+# Production specific
+Production/backend/__pycache__/
+Production/backend/alembic/versions/*.py
+Production/frontend/node_modules/
+Production/frontend/dist/

@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+pydantic
+pydantic-settings
+sqlalchemy
+asyncpg
+alembic
+passlib[bcrypt]
+python-jose[cryptography]
+langchain-groq
+langchain-core
+langgraph
+PyMuPDF
+python-docx
+reportlab
