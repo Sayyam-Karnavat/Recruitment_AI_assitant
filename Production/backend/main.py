@@ -25,7 +25,7 @@ app = FastAPI(title="Resume Shortlisting Platform", version="1.0.0", lifespan=li
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

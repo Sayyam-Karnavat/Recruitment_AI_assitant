@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import api from '../services/api'
-import { Upload, FileText, Loader2, ArrowLeft, Download, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Upload, Loader2, ArrowLeft, Download, CheckCircle, XCircle, Clock } from 'lucide-react'
 
 interface Job {
   id: string
