@@ -6,7 +6,8 @@ Stage 2: Evaluation of candidate against job description.
 
 import asyncio
 import logging
-import time
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from groq import RateLimitError, InternalServerError, APIConnectionError
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -28,31 +29,35 @@ def _get_llm(model_name: str) -> ChatGroq:
     return ChatGroq(model=model_name, api_key=settings.GROQ_API_KEY, temperature=0.1, max_retries=2)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RateLimitError, InternalServerError, APIConnectionError)),
+    reraise=True
+)
 def _invoke_with_fallback(chain_builder, input_data: dict):
-    """Try chain across multiple models with rate-limit fallback."""
+    """Try chain across multiple models, using tenacity for retries."""
     last_error = None
 
     for model_name in FALLBACK_MODELS:
-        for attempt in range(2):
-            try:
-                llm = _get_llm(model_name)
-                chain = chain_builder(llm)
-                return chain.invoke(input_data)
-            except Exception as e:
-                last_error = e
-                error_str = str(e).lower()
+        try:
+            llm = _get_llm(model_name)
+            chain = chain_builder(llm)
+            return chain.invoke(input_data)
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
 
-                if any(kw in error_str for kw in ["rate_limit", "quota", "429", "resource_exhausted"]):
-                    logger.warning(f"Model '{model_name}' rate limited, trying next...")
-                    break
-
-                if "connection" in error_str or "timeout" in error_str:
-                    if attempt == 0:
-                        time.sleep(3)
-                        continue
-                    break
-
-                break
+            if any(kw in error_str for kw in ["rate_limit", "quota", "429", "resource_exhausted"]):
+                logger.warning(f"Model '{model_name}' rate limited, trying next...")
+                continue
+            
+            if "connection" in error_str or "timeout" in error_str:
+                logger.warning(f"Connection issue on '{model_name}', trying next...")
+                continue
+            
+            # If not a recognized retryable error on this model, just move to the next model
+            break
 
     raise RuntimeError(f"All models exhausted. Last error: {last_error}")
 

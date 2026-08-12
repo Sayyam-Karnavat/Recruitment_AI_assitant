@@ -14,7 +14,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -103,10 +102,9 @@ async def init_db():
             # Seed admin user if not exists
             await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")
             if not await cur.fetchone():
-                from auth import hash_password
                 await cur.execute(
-                    "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
-                    ("admin@resumeai.com", hash_password("admin123"))
+                    "INSERT INTO users (email) VALUES (%s)",
+                    ("admin@resumeai.com",)
                 )
         await conn.commit()
     finally:
@@ -117,9 +115,9 @@ async def open_pool():
     """Open the connection pool. Call during app startup."""
     global pool
     pool = psycopg_pool.AsyncConnectionPool(
-        conninfo=settings.DATABASE_URL, min_size=2, max_size=10
+        conninfo=settings.DATABASE_URL, min_size=2, max_size=10, open=False
     )
-    await pool.wait()
+    await pool.open()
 
 
 async def get_pool() -> psycopg_pool.AsyncConnectionPool:

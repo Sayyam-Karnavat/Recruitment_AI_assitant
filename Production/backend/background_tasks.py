@@ -85,6 +85,7 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
     await cur.execute("UPDATE candidates SET status = 'parsed' WHERE id = %s", (candidate_id,))
 
     # Insert profile
+    profile_dump = profile_data.model_dump()
     await cur.execute(
         """INSERT INTO candidate_profiles
            (candidate_id, prof_name, prof_email, phone, prof_location, role_title, total_experience_years,
@@ -93,9 +94,9 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
         (
             candidate_id, profile_data.name, profile_data.email, profile_data.phone,
             profile_data.location, profile_data.current_role, profile_data.total_experience_years,
-            json.dumps(profile_data.skills), json.dumps(profile_data.work_experience),
-            json.dumps(profile_data.education), json.dumps(profile_data.projects),
-            json.dumps(profile_data.certifications), json.dumps(profile_data.achievements),
+            json.dumps(profile_dump["skills"]), json.dumps(profile_dump["work_experience"]),
+            json.dumps(profile_dump["education"]), json.dumps(profile_dump["projects"]),
+            json.dumps(profile_dump["certifications"]), json.dumps(profile_dump["achievements"]),
         )
     )
     await conn.commit()

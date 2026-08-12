@@ -1,6 +1,8 @@
-from pydantic_settings import BaseSettings
+import os
 from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BASE_DIR = Path(__file__).resolve().parent
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -11,15 +13,19 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "../uploads"
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    GOOGLE_CLIENT_ID: str = ""
+
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
     @property
     def upload_path(self) -> Path:
         path = Path(self.UPLOAD_DIR)
         path.mkdir(parents=True, exist_ok=True)
         return path
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()

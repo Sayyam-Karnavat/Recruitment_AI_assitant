@@ -157,6 +157,22 @@ class BatchStatusResponse(BaseModel):
 # (Used with LangChain's with_structured_output)
 # ──────────────────────────────────────────────
 
+class WorkExperienceItem(BaseModel):
+    company: str = Field(description="Name of the company")
+    role: str = Field(description="Job title or role")
+    duration: str = Field(description="Duration of employment")
+    description: str = Field(description="Brief description of responsibilities and achievements")
+
+class EducationItem(BaseModel):
+    degree: str = Field(description="Name of the degree")
+    institution: str = Field(description="Name of the university or institution")
+    year: str = Field(description="Year of graduation or duration")
+
+class ProjectItem(BaseModel):
+    title: str = Field(description="Title of the project")
+    description: str = Field(description="Brief description of the project")
+    technologies: list[str] = Field(default_factory=list, description="Technologies used in the project")
+
 class ExtractedProfile(BaseModel):
     """Structured data extracted from a resume by the LLM."""
     name: str = Field(description="Full name of the candidate")
@@ -166,9 +182,9 @@ class ExtractedProfile(BaseModel):
     current_role: Optional[str] = Field(None, description="Current or most recent job title")
     total_experience_years: int = Field(0, description="Total years of professional experience", ge=0)
     skills: list[str] = Field(default_factory=list, description="List of technical skills")
-    work_experience: list[dict] = Field(default_factory=list, description="List of work experiences with keys: company, role, duration, description")
-    education: list[dict] = Field(default_factory=list, description="List of education entries with keys: degree, institution, year")
-    projects: list[dict] = Field(default_factory=list, description="List of projects with keys: title, description, technologies")
+    work_experience: list[WorkExperienceItem] = Field(default_factory=list, description="List of work experiences")
+    education: list[EducationItem] = Field(default_factory=list, description="List of education entries")
+    projects: list[ProjectItem] = Field(default_factory=list, description="List of projects")
     certifications: list[str] = Field(default_factory=list, description="List of certifications")
     achievements: list[str] = Field(default_factory=list, description="List of notable achievements")
 
