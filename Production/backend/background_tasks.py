@@ -124,7 +124,7 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
     evaluation_id = str(eval_row[0])
 
     # Insert category scores
-    for cat in eval_result.categories:
+    for cat in (eval_result.categories or []):
         await cur.execute(
             """INSERT INTO evaluation_categories (evaluation_id, category, score, rationale)
                VALUES (%s, %s, %s, %s)""",

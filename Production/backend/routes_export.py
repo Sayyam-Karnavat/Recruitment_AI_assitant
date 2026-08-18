@@ -46,7 +46,13 @@ async def export_csv(job_id: UUID, user=Depends(get_current_user), db=Depends(ge
     writer.writerow(["Rank", "Name", "Score", "Recommendation", "Summary", "Skills", "Experience (Years)", "Email", "Phone"])
 
     for rank, r in enumerate(rows, 1):
-        skills_str = ", ".join(r[4]) if r[4] else ""
+        skills_raw = r[4]
+        if isinstance(skills_raw, list):
+            skills_str = ", ".join(str(s) for s in skills_raw)
+        elif isinstance(skills_raw, str):
+            skills_str = skills_raw
+        else:
+            skills_str = ""
         writer.writerow([rank, r[0] or r[8], r[1], r[2], r[3] or "", skills_str, r[5], r[6] or "", r[7] or ""])
 
     output.seek(0)

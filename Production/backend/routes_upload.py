@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Backgro
 from database import get_db
 from schemas import UploadResponse, BatchStatusResponse
 from auth import get_current_user
-from file_parser import compute_file_hash, is_valid_resume_file, is_zip_file, extract_files_from_zip
+from file_parser import compute_file_hash, is_valid_resume_file, is_zip_file, extract_files_from_zip, validate_resume_file
 from config import settings
 from background_tasks import process_batch
 
@@ -91,6 +91,12 @@ async def upload_resumes(
                 dest = job_dir / f"{stem}_{counter}{suffix}"
                 counter += 1
             dest.write_bytes(raw_bytes)
+
+            # Validate file size (< 5MB) and page count (<= 10 pages)
+            is_valid, err_msg = validate_resume_file(str(dest), data_bytes=raw_bytes)
+            if not is_valid:
+                dest.unlink(missing_ok=True)
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
 
             await cur.execute(
                 """INSERT INTO candidates (job_id, file_hash, filename, file_path, status)

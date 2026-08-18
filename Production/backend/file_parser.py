@@ -66,8 +66,39 @@ def compute_file_hash(data: bytes) -> str:
 
 MAX_ZIP_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_FILES_IN_ZIP = 100
-MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_SINGLE_FILE_SIZE = 5 * 1024 * 1024  # 5MB limit
+MAX_PAGE_COUNT = 10
 ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+
+
+def validate_resume_file(file_path: str, data_bytes: bytes = None) -> tuple[bool, str]:
+    """
+    Validate resume file size (< 5MB) and page count (<= 10 pages for PDF).
+    Returns (is_valid, error_message).
+    """
+    # Size check
+    if data_bytes and len(data_bytes) > MAX_SINGLE_FILE_SIZE:
+        size_mb = len(data_bytes) / (1024 * 1024)
+        return False, f"File exceeds maximum allowed size of 5MB (size: {size_mb:.1f}MB)."
+    elif not data_bytes:
+        p = Path(file_path)
+        if p.exists() and p.stat().st_size > MAX_SINGLE_FILE_SIZE:
+            size_mb = p.stat().st_size / (1024 * 1024)
+            return False, f"File '{p.name}' exceeds maximum allowed size of 5MB (size: {size_mb:.1f}MB)."
+
+    # Page count check for PDF files
+    ext = Path(file_path).suffix.lower()
+    if ext == ".pdf":
+        try:
+            doc = fitz.open(file_path)
+            pages = len(doc)
+            doc.close()
+            if pages > MAX_PAGE_COUNT:
+                return False, f"PDF file has {pages} pages, which exceeds the maximum limit of 10 pages."
+        except Exception:
+            pass
+
+    return True, ""
 
 
 def extract_files_from_zip(zip_bytes: bytes, output_dir: Path) -> list[Path]:

@@ -158,40 +158,40 @@ class BatchStatusResponse(BaseModel):
 # ──────────────────────────────────────────────
 
 class WorkExperienceItem(BaseModel):
-    company: str = Field(description="Name of the company")
-    role: str = Field(description="Job title or role")
-    duration: str = Field(description="Duration of employment")
-    description: str = Field(description="Brief description of responsibilities and achievements")
+    company: Optional[str] = Field(None, description="Name of the company if present")
+    role: Optional[str] = Field(None, description="Job title or role if present")
+    duration: Optional[str] = Field(None, description="Duration of employment if present")
+    description: Optional[str] = Field(None, description="Brief description of responsibilities if present")
 
 class EducationItem(BaseModel):
-    degree: str = Field(description="Name of the degree")
-    institution: str = Field(description="Name of the university or institution")
-    year: str = Field(description="Year of graduation or duration")
+    degree: Optional[str] = Field(None, description="Name of the degree if present")
+    institution: Optional[str] = Field(None, description="Name of the university or institution if present")
+    year: Optional[str] = Field(None, description="Year of graduation or duration if present")
 
 class ProjectItem(BaseModel):
-    title: str = Field(description="Title of the project")
-    description: str = Field(description="Brief description of the project")
-    technologies: list[str] = Field(default_factory=list, description="Technologies used in the project")
+    title: Optional[str] = Field(None, description="Title of the project if present")
+    description: Optional[str] = Field(None, description="Brief description of the project if present")
+    technologies: Optional[list[str]] = Field(None, description="Technologies used in the project if present")
 
 class ExtractedProfile(BaseModel):
     """Structured data extracted from a resume by the LLM."""
-    name: str = Field(description="Full name of the candidate")
+    name: Optional[str] = Field(None, description="Full name of the candidate if found")
     email: Optional[str] = Field(None, description="Email address if found")
     phone: Optional[str] = Field(None, description="Phone number if found")
     location: Optional[str] = Field(None, description="Current city/location if found")
-    current_role: Optional[str] = Field(None, description="Current or most recent job title")
-    total_experience_years: int = Field(0, description="Total years of professional experience", ge=0)
-    skills: list[str] = Field(default_factory=list, description="List of technical skills")
-    work_experience: list[WorkExperienceItem] = Field(default_factory=list, description="List of work experiences")
-    education: list[EducationItem] = Field(default_factory=list, description="List of education entries")
-    projects: list[ProjectItem] = Field(default_factory=list, description="List of projects")
-    certifications: list[str] = Field(default_factory=list, description="List of certifications")
-    achievements: list[str] = Field(default_factory=list, description="List of notable achievements")
+    current_role: Optional[str] = Field(None, description="Current or most recent job title if found")
+    total_experience_years: float = Field(0.0, description="Total years of professional experience", ge=0)
+    skills: Optional[list[str]] = Field(None, description="List of technical skills")
+    work_experience: Optional[list[WorkExperienceItem]] = Field(None, description="List of work experiences")
+    education: Optional[list[EducationItem]] = Field(None, description="List of education entries")
+    projects: Optional[list[ProjectItem]] = Field(None, description="List of projects")
+    certifications: Optional[list[str]] = Field(None, description="List of certifications")
+    achievements: Optional[list[str]] = Field(None, description="List of notable achievements")
 
 
 class CategoryScore(BaseModel):
     """Score for a single evaluation category."""
-    category: str = Field(description="Category name: Experience, Skills, Projects, Education, Certifications, Achievements, or Domain Match")
+    category: str = Field(description="Category name")
     score: int = Field(description="Score from 0 to 10", ge=0, le=10)
     rationale: str = Field(description="Brief explanation for this score")
 
@@ -200,8 +200,8 @@ class EvaluationResult(BaseModel):
     """Full evaluation result from the LLM."""
     overall_score: int = Field(description="Overall fit score from 0 to 100", ge=0, le=100)
     recommendation: str = Field(description="One of: Strong Shortlist, Shortlist, Maybe, Reject")
-    summary: str = Field(description="2-3 sentence explanation of the overall assessment")
-    strengths: list[str] = Field(default_factory=list, description="Key strengths of the candidate")
-    weaknesses: list[str] = Field(default_factory=list, description="Key weaknesses or gaps")
-    missing_skills: list[str] = Field(default_factory=list, description="Skills required by JD but missing from candidate")
-    categories: list[CategoryScore] = Field(default_factory=list, description="Per-category scores")
+    summary: str = Field(description="Explanation of the overall assessment")
+    strengths: Optional[list[str]] = Field(None, description="Key strengths of the candidate")
+    weaknesses: Optional[list[str]] = Field(None, description="Key weaknesses or gaps")
+    missing_skills: Optional[list[str]] = Field(None, description="Skills required by JD but missing from candidate")
+    categories: Optional[list[CategoryScore]] = Field(None, description="Per-category scores")

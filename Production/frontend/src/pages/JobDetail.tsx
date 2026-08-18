@@ -71,8 +71,20 @@ export default function JobDetail() {
     return () => clearInterval(interval)
   }, [batchId])
 
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    setUploadError(null)
     if (acceptedFiles.length === 0) return
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    for (const f of acceptedFiles) {
+      if (f.size > MAX_FILE_SIZE) {
+        setUploadError(`File "${f.name}" exceeds the maximum allowed size of 5MB.`)
+        return
+      }
+    }
+
     setUploading(true)
 
     const formData = new FormData()
@@ -86,7 +98,7 @@ export default function JobDetail() {
       setBatchProgress({ processed: 0, total: res.data.total_files })
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } }
-      alert(error.response?.data?.detail || 'Upload failed')
+      setUploadError(error.response?.data?.detail || 'Upload failed')
       setUploading(false)
     }
   }, [id])
@@ -119,21 +131,21 @@ export default function JobDetail() {
     return <div className="flex items-center justify-center h-64"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
   }
 
-  if (!job) return <p className="text-slate-500">Job not found.</p>
-
   return (
-    <div>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Back button */}
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-6">
+        <ArrowLeft className="w-4 h-4" /> Back to Jobs
+      </Link>
+
       {/* Header */}
-      <div className="mb-6">
-        <Link to="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 hover:text-primary mb-3">
-          <ArrowLeft className="w-4 h-4" /> Back to Jobs
-        </Link>
-        <div className="flex items-start justify-between">
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">{job.title}</h1>
-            <p className="text-sm text-slate-500 mt-1 line-clamp-2 max-w-2xl">{job.description.slice(0, 200)}...</p>
+            <h1 className="text-2xl font-bold text-slate-900 mb-1">{job?.title}</h1>
+            <p className="text-sm text-slate-500 max-w-2xl line-clamp-2">{job?.description}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <a href={`/api/jobs/${id}/export/csv`} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-slate-200 rounded-lg hover:bg-slate-50">
               <Download className="w-3.5 h-3.5" /> CSV
             </a>
@@ -143,6 +155,13 @@ export default function JobDetail() {
           </div>
         </div>
       </div>
+
+      {uploadError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-center justify-between">
+          <span>⚠️ {uploadError}</span>
+          <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600 text-xs font-semibold">Dismiss</button>
+        </div>
+      )}
 
       {/* Upload Zone */}
       <div
@@ -169,7 +188,7 @@ export default function JobDetail() {
           <div>
             <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
             <p className="text-sm font-medium text-slate-700">Drop resumes here or click to browse</p>
-            <p className="text-xs text-slate-400 mt-1">PDF, DOCX, or ZIP • No file limit</p>
+            <p className="text-xs text-slate-400 mt-1">PDF or DOCX • Max 5MB & 10 pages per resume</p>
           </div>
         )}
       </div>
