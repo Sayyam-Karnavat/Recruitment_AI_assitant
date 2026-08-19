@@ -2,84 +2,53 @@
 LLM Pipeline using LangChain + Groq.
 Stage 1: Structured extraction from resume text.
 Stage 2: Evaluation of candidate against job description.
-
-Uses raw JSON output (no tool-calling) to avoid Groq 'failed_generation' errors.
 """
 
 import asyncio
-import json
 import logging
-import re
 from datetime import datetime
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import ValidationError
-
 from config import settings
 from schemas import ExtractedProfile, EvaluationResult
 
 logger = logging.getLogger(__name__)
 
-# Fallback models supporting json_object mode
+# Fallback models configuration
 FALLBACK_MODELS = [
-    "qwen/qwen3.6-27b"
+    "openai/gpt-oss-20b"
 ]
 
 
-def _get_llm(model_name: str) -> ChatGroq:
-    return ChatGroq(
-        model=model_name,
-        api_key=settings.GROQ_API_KEY,
-        temperature=0.0,
-        max_retries=1,
-        max_tokens=4096,
-    )
 
 
-def _extract_json(text: str) -> dict:
-    """Extract first JSON object from LLM text response."""
-    try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        pass
-
-    # Try markdown code fence
-    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # Last resort: find first { ... } block
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError(f"No valid JSON found in LLM response: {text[:300]}")
-
-
-def _invoke_with_fallback(prompt: ChatPromptTemplate, input_data: dict) -> dict:
-    """
-    Invoke prompt across models, returning a raw dict.
-    Uses response_format=json_object to force JSON output WITHOUT tool-calling.
-    """
+def _invoke_with_fallback(chain_builder, input_data: dict):
+    """Try chain across multiple models, using structured output parser."""
     last_error = None
 
     for model_name in FALLBACK_MODELS:
         try:
-            llm = _get_llm(model_name)
-            # Force raw JSON output — bypasses tool-calling entirely
-            llm_json = llm.bind(response_format={"type": "json_object"})
-            chain = prompt | llm_json
-            response = chain.invoke(input_data)
-            raw = response.content if hasattr(response, "content") else str(response)
-            return _extract_json(raw)
+            llm = ChatGroq(
+                model=model_name,
+                api_key=settings.GROQ_API_KEY,
+                temperature=0.0,
+                max_retries=1,
+                max_tokens=4096,
+            )
+            chain = chain_builder(llm)
+            return chain.invoke(input_data)
         except Exception as e:
             last_error = e
+            error_str = str(e).lower()
+
+            if any(kw in error_str for kw in ["rate_limit", "quota", "429", "resource_exhausted"]):
+                logger.warning(f"Model '{model_name}' rate limited, trying next...")
+                continue
+            
+            if "connection" in error_str or "timeout" in error_str:
+                logger.warning(f"Connection issue on '{model_name}', trying next...")
+                continue
+            
             logger.warning(f"Model '{model_name}' failed with error: {e}, trying next model...")
             continue
 
@@ -103,42 +72,7 @@ CRITICAL RULES FOR CALCULATING `total_experience_years`:
 - Include relevant technical experience from education/projects if part of overall career history, but focus primarily on work history timeline.
 - If a start date is missing or marked '[Start Date]', infer start time based on preceding education or work timeline.
 - Express `total_experience_years` as a number (e.g. 3.0, 3.5, 4.0).
-- Keep work experience `description` strings concise (1-2 summary sentences per role) to fit output token limits.
-
-Respond with ONLY a valid JSON object using this exact structure:
-{{
-  "name": "string or null",
-  "email": "string or null",
-  "phone": "string or null",
-  "location": "string or null",
-  "current_role": "string or null",
-  "total_experience_years": 0.0,
-  "skills": ["skill1", "skill2"],
-  "work_experience": [
-    {{
-      "company": "string or null",
-      "role": "string or null",
-      "duration": "string or null",
-      "description": "string or null"
-    }}
-  ],
-  "education": [
-    {{
-      "degree": "string or null",
-      "institution": "string or null",
-      "year": "string or null"
-    }}
-  ],
-  "projects": [
-    {{
-      "title": "string or null",
-      "description": "string or null",
-      "technologies": ["tech1"]
-    }}
-  ],
-  "certifications": ["cert1"],
-  "achievements": ["achievement1"]
-}}"""),
+- Keep work experience `description` strings concise (1-2 summary sentences per role)."""),
     ("human", "Extract structured data from this resume:\n\n{text}")
 ])
 
@@ -147,13 +81,13 @@ async def extract_profile(raw_text: str) -> ExtractedProfile | None:
     """Run LLM extraction on resume text. Returns structured profile or None on failure."""
     try:
         current_date_str = datetime.now().strftime("%B %Y")
-        raw_dict = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             _invoke_with_fallback,
-            EXTRACTION_PROMPT,
-            {"text": raw_text[:6000], "current_date": current_date_str},
+            lambda llm: EXTRACTION_PROMPT | llm.with_structured_output(ExtractedProfile),
+            {"text": raw_text[:6000], "current_date": current_date_str}
         )
-        return ExtractedProfile.model_validate(raw_dict)
-    except (ValidationError, ValueError, RuntimeError) as e:
+        return result
+    except Exception as e:
         logger.error(f"Extraction failed: {e}")
         return None
 
@@ -173,31 +107,8 @@ CRITICAL EVALUATION & EXPERIENCE CALCULATION RULES:
 - Do NOT falsely penalize a candidate for experience duration based on an outdated current year.
 - Evaluate total years across all work experience and project history. If total experience meets or exceeds the required years in the job description, score the Experience category appropriately and do not reject solely on experience duration.
 
-Respond with ONLY a valid JSON object using this exact structure:
-{{
-  "overall_score": 75,
-  "recommendation": "Shortlist",
-  "summary": "2-3 sentence overall assessment of the candidate.",
-  "strengths": ["strength1", "strength2"],
-  "weaknesses": ["weakness1", "weakness2"],
-  "missing_skills": ["skill1", "skill2"],
-  "categories": [
-    {{"category": "Experience", "score": 7, "rationale": "explanation"}},
-    {{"category": "Skills", "score": 6, "rationale": "explanation"}},
-    {{"category": "Projects", "score": 5, "rationale": "explanation"}},
-    {{"category": "Education", "score": 8, "rationale": "explanation"}},
-    {{"category": "Certifications", "score": 3, "rationale": "explanation"}},
-    {{"category": "Achievements", "score": 7, "rationale": "explanation"}},
-    {{"category": "Domain Match", "score": 6, "rationale": "explanation"}}
-  ]
-}}
-
-Rules:
-- overall_score must be an integer between 0 and 100
-- recommendation must be exactly one of: "Strong Shortlist", "Shortlist", "Maybe", "Reject"
-- All 7 categories must be included
-- category score must be an integer between 0 and 10
-- Be fair, objective, and base your evaluation strictly on the information provided."""),
+Provide per-category scores (0-10) for Experience, Skills, Projects, Education, Certifications, Achievements, Domain Match.
+Provide an overall_score (0-100) and recommendation ("Strong Shortlist", "Shortlist", "Maybe", "Reject")."""),
     ("human", """Job Description:
 {job_description}
 
@@ -234,12 +145,13 @@ async def evaluate_candidate(profile: ExtractedProfile, job_description: str) ->
             "achievements": ", ".join(profile.achievements) if profile.achievements else "None",
         }
 
-        raw_dict = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             _invoke_with_fallback,
-            EVALUATION_PROMPT,
-            input_data,
+            lambda llm: EVALUATION_PROMPT | llm.with_structured_output(EvaluationResult),
+            input_data
         )
-        return EvaluationResult.model_validate(raw_dict)
-    except (ValidationError, ValueError, RuntimeError) as e:
+        return result
+    except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         return None
+
