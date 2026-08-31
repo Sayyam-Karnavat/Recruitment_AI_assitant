@@ -24,7 +24,8 @@ AI_Model/
 Screening-AI/Hugging_Face/*
 
 # Production specific
-Production/backend/__pycache__/
-Production/backend/alembic/versions/*.py
-Production/frontend/node_modules/
-Production/frontend/dist/
+backend/__pycache__/
+backend/alembic/versions/*.py
+frontend/node_modules/
+frontend/dist/
+.vscode
