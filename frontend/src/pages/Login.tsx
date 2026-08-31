@@ -1,44 +1,18 @@
 ﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
-import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
-import { Loader2, ArrowRight } from 'lucide-react'
 
 export default function Login() {
-  const { login } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { loginWithGoogle } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [name, setName] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      let res
-      if (isSignUp) {
-        res = await api.post('/auth/register', { name, email, password })
-      } else {
-        res = await api.post('/auth/login', { email, password })
-      }
-      login(res.data.access_token, res.data.user)
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Authentication failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleGoogle = async (credential: string) => {
     setLoading(true)
     setError('')
     try {
-      const res = await api.post('/auth/google', { token: credential })
-      login(res.data.access_token, res.data.user)
+      await loginWithGoogle(credential)
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Google sign-in failed.')
     } finally {
@@ -143,17 +117,17 @@ export default function Login() {
           <span style={{ fontWeight: 700, fontSize: '0.9375rem', letterSpacing: '-0.025em', color: 'var(--c-t1)' }}>ResumeAI</span>
         </div>
 
-        <div className="fade-up" style={{ width: '100%' }}>
+        <div className="fade-up" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: 800, letterSpacing: '-0.035em', color: 'var(--c-t1)', marginBottom: 6 }}>
-            {isSignUp ? 'Create your account' : 'Welcome back'}
+            Welcome back
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--c-t2)', marginBottom: 28 }}>
-            {isSignUp ? 'Start screening smarter today.' : 'Sign in to your ResumeAI workspace.'}
+          <p style={{ fontSize: '0.875rem', color: 'var(--c-t2)', marginBottom: 36, textAlign: 'center' }}>
+            Sign in to your ResumeAI workspace.
           </p>
 
           {/* Error */}
           {error && (
-            <div role="alert" className="alert-error" style={{ marginBottom: 16 }}>
+            <div role="alert" className="alert-error" style={{ marginBottom: 24, width: '100%' }}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
                 <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
                 <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -162,83 +136,8 @@ export default function Login() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {isSignUp && (
-              <div>
-                <label htmlFor="name" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                  Full Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  className="field"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your name"
-                  required={isSignUp}
-                  autoComplete="name"
-                  autoFocus={isSignUp}
-                />
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="field"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-                autoComplete="email"
-                autoFocus={!isSignUp}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="field"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                minLength={6}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ marginTop: 4, padding: '0.6875rem 1rem', width: '100%' }}
-            >
-              {loading
-                ? <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                : <ArrowRight size={16} aria-hidden="true" />
-              }
-              {loading ? 'Signing in…' : isSignUp ? 'Create Account' : 'Sign In'}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0' }}>
-            <div className="divider" />
-            <span style={{ fontSize: '0.75rem', color: 'var(--c-t3)', whiteSpace: 'nowrap' }}>or continue with</span>
-            <div className="divider" />
-          </div>
-
           {/* Google */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', opacity: loading ? 0.6 : 1, transition: 'opacity 200ms ease', pointerEvents: loading ? 'none' : 'auto' }}>
             <GoogleLogin
               onSuccess={c => c.credential && handleGoogle(c.credential)}
               onError={() => setError('Google sign-in was cancelled.')}
@@ -248,17 +147,11 @@ export default function Login() {
               width="360"
             />
           </div>
+          
+          <div style={{ marginTop: 24, minHeight: 20 }}>
+              {loading && <p style={{ fontSize: '0.875rem', color: 'var(--c-t2)' }}>Signing in...</p>}
+          </div>
 
-          <p style={{ marginTop: 24, textAlign: 'center', fontSize: '0.8125rem', color: 'var(--c-t3)' }}>
-            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-            <button
-              type="button"
-              onClick={() => { setIsSignUp(s => !s); setError('') }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-brand-hi)', fontWeight: 600, fontSize: 'inherit' }}
-            >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
-            </button>
-          </p>
         </div>
       </div>
     </div>
