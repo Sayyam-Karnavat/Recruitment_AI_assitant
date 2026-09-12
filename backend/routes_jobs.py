@@ -13,17 +13,19 @@ router = APIRouter()
 async def create_job(body: JobCreate, user=Depends(get_current_user), db=Depends(get_db)):
     conn, cur = db
     await cur.execute(
-        """INSERT INTO jobs (user_id, title, description, target_shortlist_count)
-           VALUES (%s, %s, %s, %s)
-           RETURNING id, title, description, target_shortlist_count, status, created_at""",
-        (str(user["id"]), body.title, body.description, body.target_shortlist_count)
+        """INSERT INTO jobs (user_id, title, description, target_shortlist_count, custom_prompt, active_days_limit, max_applications)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           RETURNING id, title, description, target_shortlist_count, status, created_at, custom_prompt, active_days_limit, max_applications""",
+        (str(user["id"]), body.title, body.description, body.target_shortlist_count, body.custom_prompt, body.active_days_limit, body.max_applications)
     )
     row = await cur.fetchone()
     await conn.commit()
 
     return JobResponse(
         id=row[0], title=row[1], description=row[2],
-        target_shortlist_count=row[3], status=row[4], created_at=row[5], candidate_count=0
+        target_shortlist_count=row[3], status=row[4], created_at=row[5],
+        custom_prompt=row[6], active_days_limit=row[7], max_applications=row[8],
+        candidate_count=0
     )
 
 
@@ -32,6 +34,7 @@ async def list_jobs(user=Depends(get_current_user), db=Depends(get_db)):
     conn, cur = db
     await cur.execute(
         """SELECT j.id, j.title, j.description, j.target_shortlist_count, j.status, j.created_at,
+                  j.custom_prompt, j.active_days_limit, j.max_applications,
                   COUNT(c.id) as candidate_count
            FROM jobs j
            LEFT JOIN candidates c ON c.job_id = j.id
@@ -43,7 +46,8 @@ async def list_jobs(user=Depends(get_current_user), db=Depends(get_db)):
     rows = await cur.fetchall()
 
     return [
-        JobResponse(id=r[0], title=r[1], description=r[2], target_shortlist_count=r[3], status=r[4], created_at=r[5], candidate_count=r[6])
+        JobResponse(id=r[0], title=r[1], description=r[2], target_shortlist_count=r[3], status=r[4], created_at=r[5],
+                    custom_prompt=r[6], active_days_limit=r[7], max_applications=r[8], candidate_count=r[9])
         for r in rows
     ]
 
@@ -53,6 +57,7 @@ async def get_job(job_id: UUID, user=Depends(get_current_user), db=Depends(get_d
     conn, cur = db
     await cur.execute(
         """SELECT j.id, j.title, j.description, j.target_shortlist_count, j.status, j.created_at,
+                  j.custom_prompt, j.active_days_limit, j.max_applications,
                   COUNT(c.id) as candidate_count
            FROM jobs j
            LEFT JOIN candidates c ON c.job_id = j.id
@@ -65,7 +70,7 @@ async def get_job(job_id: UUID, user=Depends(get_current_user), db=Depends(get_d
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
-    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], candidate_count=row[6])
+    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], custom_prompt=row[6], active_days_limit=row[7], max_applications=row[8], candidate_count=row[9])
 
 
 @router.patch("/{job_id}", response_model=JobResponse)
@@ -90,10 +95,25 @@ async def update_job(job_id: UUID, body: JobUpdate, user=Depends(get_current_use
 
     values.append(str(job_id))
     await cur.execute(
-        f"UPDATE jobs SET {', '.join(updates)} WHERE id = %s RETURNING id, title, description, target_shortlist_count, status, created_at",
+        f"UPDATE jobs SET {', '.join(updates)} WHERE id = %s RETURNING id, title, description, target_shortlist_count, status, created_at, custom_prompt, active_days_limit, max_applications",
         values
     )
     row = await cur.fetchone()
+    
+    # We also need candidate_count for the response
+    await cur.execute("SELECT COUNT(id) FROM candidates WHERE job_id = %s", (str(job_id),))
+    c_count = (await cur.fetchone())[0]
+
     await conn.commit()
 
-    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], candidate_count=0)
+    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], custom_prompt=row[6], active_days_limit=row[7], max_applications=row[8], candidate_count=c_count)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_job(job_id: UUID, user=Depends(get_current_user), db=Depends(get_db)):
+    conn, cur = db
+    await cur.execute("DELETE FROM jobs WHERE id = %s AND user_id = %s RETURNING id", (str(job_id), str(user["id"])))
+    if not await cur.fetchone():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    await conn.commit()
+    return None

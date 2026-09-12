@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from database import get_db
-from schemas import CandidateListItem, CandidateDetailResponse, CandidateProfileResponse, EvaluationResponse, EvaluationCategoryResponse
+from schemas import CandidateListItem, CandidateDetailResponse, CandidateProfileResponse, EvaluationResponse, EvaluationCategoryResponse, CandidateFeedbackCreate, CandidateFeedbackResponse
 from auth import get_current_user
 
 router = APIRouter()
@@ -16,6 +16,7 @@ async def list_candidates(
     job_id: UUID,
     sort_by: Optional[str] = Query("score", pattern="^(score|name|date)$"),
     recommendation: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     user=Depends(get_current_user),
     db=Depends(get_db),
 ):
@@ -45,7 +46,12 @@ async def list_candidates(
         for r in rows
     ]
 
-    # Filter
+    # Filter by search keyword (name or filename)
+    if search:
+        s = search.strip().lower()
+        items = [i for i in items if (i.name and s in i.name.lower()) or (i.filename and s in i.filename.lower())]
+
+    # Filter by recommendation
     if recommendation:
         items = [i for i in items if i.recommendation and i.recommendation.lower() == recommendation.lower()]
 
@@ -125,4 +131,37 @@ async def get_candidate_detail(
     return CandidateDetailResponse(
         id=c[0], filename=c[2], status=c[3], raw_text=c[4], created_at=c[5],
         profile=profile_response, evaluation=evaluation_response,
+    )
+
+@router.post("/candidates/{candidate_id}/feedback", response_model=CandidateFeedbackResponse)
+async def submit_candidate_feedback(
+    candidate_id: UUID,
+    feedback: CandidateFeedbackCreate,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    conn, cur = db
+    # Verify candidate and ownership
+    await cur.execute(
+        "SELECT c.id FROM candidates c JOIN jobs j ON c.job_id = j.id WHERE c.id = %s AND j.user_id = %s",
+        (str(candidate_id), str(user["id"]))
+    )
+    if not await cur.fetchone():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    await cur.execute(
+        """INSERT INTO candidate_feedback (candidate_id, expected_score, expected_recommendation, comment)
+           VALUES (%s, %s, %s, %s) RETURNING id, created_at""",
+        (str(candidate_id), feedback.expected_score, feedback.expected_recommendation, feedback.comment)
+    )
+    row = await cur.fetchone()
+    await conn.commit()
+
+    return CandidateFeedbackResponse(
+        id=row[0],
+        candidate_id=candidate_id,
+        expected_score=feedback.expected_score,
+        expected_recommendation=feedback.expected_recommendation,
+        comment=feedback.comment,
+        created_at=row[1]
     )

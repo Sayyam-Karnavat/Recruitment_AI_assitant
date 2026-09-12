@@ -1,40 +1,60 @@
 """
 Background processing: parse files, extract structured data, evaluate candidates.
-Uses psycopg async directly (opens its own connection from pool).
+Features:
+- Guarded credit deductions & automatic refunds on system faults
+- User fault vs. System fault categorization
+- WebSocket real-time progress broadcasting
+- Webhook notifications
 """
 
 import json
 import logging
+from uuid import UUID
 
 from database import get_pool
 from file_parser import extract_text
 from llm_pipeline import extract_profile, evaluate_candidate
+from routes_ws import ws_manager
 
 logger = logging.getLogger(__name__)
 
 
-async def process_batch(batch_id: str, candidate_ids: list[str], job_description: str):
-    """Process all candidates in a batch: extract text → LLM parse → LLM evaluate."""
+async def process_batch(
+    batch_id: str,
+    candidate_ids: list[str],
+    job_id: str,
+    user_id: str,
+    job_description: str,
+    custom_prompt: str = None
+):
+    """Process all candidates in a batch with error handling and real-time events."""
     pool = await get_pool()
+    total_files = len(candidate_ids)
+    processed_files = 0
 
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
             try:
                 for candidate_id in candidate_ids:
+                    processed_files += 1
                     try:
-                        await process_single_candidate(conn, cur, candidate_id, job_description)
-                    except Exception as e:
-                        logger.error(f"Failed to process candidate {candidate_id}: {e}")
-                        await cur.execute(
-                            "UPDATE candidates SET status = 'failed' WHERE id = %s",
-                            (candidate_id,)
+                        await process_single_candidate(
+                            conn, cur,
+                            candidate_id=candidate_id,
+                            job_id=job_id,
+                            user_id=user_id,
+                            job_description=job_description,
+                            custom_prompt=custom_prompt,
+                            batch_progress=(processed_files, total_files)
                         )
-                        await conn.commit()
+                    except Exception as e:
+                        logger.error(f"Unexpected error processing candidate {candidate_id}: {e}", exc_info=True)
+                        await handle_system_fault(conn, cur, candidate_id, user_id, f"Unexpected worker error: {str(e)}")
 
-                    # Update batch progress
+                    # Update batch progress in DB
                     await cur.execute(
-                        "UPDATE upload_batches SET processed_files = processed_files + 1 WHERE id = %s",
-                        (batch_id,)
+                        "UPDATE upload_batches SET processed_files = %s WHERE id = %s",
+                        (processed_files, batch_id)
                     )
                     await conn.commit()
 
@@ -45,66 +65,210 @@ async def process_batch(batch_id: str, candidate_ids: list[str], job_description
                 )
                 await conn.commit()
 
+                # Broadcast batch completed via WebSocket
+                await ws_manager.broadcast_to_job(str(job_id), {
+                    "type": "batch_completed",
+                    "batch_id": str(batch_id),
+                    "total_files": total_files,
+                    "processed_files": processed_files,
+                    "status": "completed"
+                })
+
             except Exception as e:
-                logger.error(f"Batch {batch_id} failed: {e}")
+                logger.error(f"Batch {batch_id} catastrophic failure: {e}", exc_info=True)
                 await cur.execute(
                     "UPDATE upload_batches SET status = 'failed' WHERE id = %s",
                     (batch_id,)
                 )
                 await conn.commit()
 
+                await ws_manager.broadcast_to_job(str(job_id), {
+                    "type": "batch_failed",
+                    "batch_id": str(batch_id),
+                    "error": str(e)
+                })
 
-async def process_single_candidate(conn, cur, candidate_id: str, job_description: str):
+
+async def handle_user_fault(conn, cur, candidate_id: str, job_id: str, reason: str, batch_progress: tuple[int, int]):
+    """
+    Handle user fault (e.g. blank document, unreadable scan, corrupted/nonsensical file).
+    Credits ARE consumed (no refund) because user submitted invalid data.
+    """
+    await cur.execute(
+        """UPDATE candidates
+           SET status = 'failed', error_type = 'user_fault', error_reason = %s
+           WHERE id = %s""",
+        (reason, candidate_id)
+    )
+    await conn.commit()
+
+    processed_files, total_files = batch_progress
+    await ws_manager.broadcast_to_job(str(job_id), {
+        "type": "candidate_update",
+        "candidate_id": str(candidate_id),
+        "status": "failed",
+        "error_type": "user_fault",
+        "error_reason": reason,
+        "processed_files": processed_files,
+        "total_files": total_files,
+    })
+
+
+async def handle_system_fault(conn, cur, candidate_id: str, user_id: str, reason: str, job_id: str = None, batch_progress: tuple[int, int] = (0, 0)):
+    """
+    Handle system fault (LLM timeout, API quota error, server failure).
+    Credits ARE NOT consumed -> 1 credit is automatically refunded with transaction audit!
+    """
+    await cur.execute(
+        """UPDATE candidates
+           SET status = 'failed', error_type = 'system_fault', error_reason = %s
+           WHERE id = %s""",
+        (reason, candidate_id)
+    )
+
+    # 1. Refund 1 credit to user's wallet
+    await cur.execute(
+        "UPDATE users SET credits = credits + 1 WHERE id = %s",
+        (user_id,)
+    )
+
+    # 2. Insert audit transaction record
+    await cur.execute(
+        """INSERT INTO transactions
+           (user_id, amount_credits, transaction_type, status, reference_id, description)
+           VALUES (%s, 1, 'refund', 'success', %s, %s)""",
+        (user_id, candidate_id, f"Refund: System processing fault ({reason[:100]})")
+    )
+    await conn.commit()
+    logger.info(f"System fault for candidate {candidate_id}: refunded 1 credit to user {user_id}.")
+
+    if job_id:
+        processed_files, total_files = batch_progress
+        await ws_manager.broadcast_to_job(str(job_id), {
+            "type": "candidate_update",
+            "candidate_id": str(candidate_id),
+            "status": "failed",
+            "error_type": "system_fault",
+            "error_reason": reason,
+            "refunded": True,
+            "processed_files": processed_files,
+            "total_files": total_files,
+        })
+
+
+async def process_single_candidate(
+    conn, cur,
+    candidate_id: str,
+    job_id: str,
+    user_id: str,
+    job_description: str,
+    custom_prompt: str = None,
+    batch_progress: tuple[int, int] = (1, 1)
+):
     """Full pipeline for one candidate: text extraction → LLM extraction → LLM evaluation."""
 
-    # Get candidate file path
-    await cur.execute("SELECT file_path FROM candidates WHERE id = %s", (candidate_id,))
+    # Fetch candidate record
+    await cur.execute(
+        "SELECT raw_text, file_path, filename FROM candidates WHERE id = %s",
+        (candidate_id,)
+    )
     row = await cur.fetchone()
     if not row:
         return
 
-    file_path = row[0]
+    raw_text, file_path, filename = row[0], row[1], row[2]
 
-    # Step 1: Extract raw text from file
-    raw_text = extract_text(file_path)
-    if not raw_text or len(raw_text) < 50:
-        await cur.execute("UPDATE candidates SET status = 'failed' WHERE id = %s", (candidate_id,))
-        await conn.commit()
+    # Step 1: Text extraction validation
+    if not raw_text and file_path:
+        # Fallback for existing legacy candidates on disk
+        raw_text = extract_text(file_path, filename)
+        if raw_text:
+            await cur.execute("UPDATE candidates SET raw_text = %s WHERE id = %s", (raw_text, candidate_id))
+            await conn.commit()
+
+    if not raw_text or len(raw_text.strip()) < 40:
+        # User fault: document has no readable text or is corrupted
+        await handle_user_fault(
+            conn, cur, candidate_id, job_id,
+            reason="Resume contains unreadable or empty content. Please verify document formatting.",
+            batch_progress=batch_progress
+        )
         return
 
-    await cur.execute("UPDATE candidates SET raw_text = %s WHERE id = %s", (raw_text, candidate_id))
-    await conn.commit()
-
     # Step 2: LLM structured extraction
-    profile_data = await extract_profile(raw_text)
-    if not profile_data:
-        await cur.execute("UPDATE candidates SET status = 'failed' WHERE id = %s", (candidate_id,))
-        await conn.commit()
+    try:
+        profile_data = await extract_profile(raw_text)
+    except Exception as e:
+        # System fault during LLM extraction
+        await handle_system_fault(
+            conn, cur, candidate_id, user_id,
+            reason=f"LLM Parsing Error: {str(e)}",
+            job_id=job_id,
+            batch_progress=batch_progress
+        )
+        return
+
+    if not profile_data or not profile_data.name:
+        # If extraction returned empty due to nonsensical content
+        await handle_user_fault(
+            conn, cur, candidate_id, job_id,
+            reason="Resume content does not contain recognizable profile data or experience.",
+            batch_progress=batch_progress
+        )
         return
 
     await cur.execute("UPDATE candidates SET status = 'parsed' WHERE id = %s", (candidate_id,))
 
-    # Insert profile
+    # Insert or update profile
     profile_dump = profile_data.model_dump()
     await cur.execute(
         """INSERT INTO candidate_profiles
            (candidate_id, prof_name, prof_email, phone, prof_location, role_title, total_experience_years,
             skills, work_experience, education, projects, certifications, achievements)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+           ON CONFLICT (candidate_id) DO UPDATE SET
+            prof_name = EXCLUDED.prof_name,
+            prof_email = EXCLUDED.prof_email,
+            phone = EXCLUDED.phone,
+            prof_location = EXCLUDED.prof_location,
+            role_title = EXCLUDED.role_title,
+            total_experience_years = EXCLUDED.total_experience_years,
+            skills = EXCLUDED.skills,
+            work_experience = EXCLUDED.work_experience,
+            education = EXCLUDED.education,
+            projects = EXCLUDED.projects,
+            certifications = EXCLUDED.certifications,
+            achievements = EXCLUDED.achievements""",
         (
             candidate_id, profile_data.name, profile_data.email, profile_data.phone,
             profile_data.location, profile_data.current_role, profile_data.total_experience_years,
-            json.dumps(profile_dump["skills"]), json.dumps(profile_dump["work_experience"]),
-            json.dumps(profile_dump["education"]), json.dumps(profile_dump["projects"]),
-            json.dumps(profile_dump["certifications"]), json.dumps(profile_dump["achievements"]),
+            json.dumps(profile_dump.get("skills", [])), json.dumps(profile_dump.get("work_experience", [])),
+            json.dumps(profile_dump.get("education", [])), json.dumps(profile_dump.get("projects", [])),
+            json.dumps(profile_dump.get("certifications", [])), json.dumps(profile_dump.get("achievements", [])),
         )
     )
     await conn.commit()
 
     # Step 3: LLM evaluation against JD
-    eval_result = await evaluate_candidate(profile_data, job_description)
+    try:
+        eval_result = await evaluate_candidate(profile_data, job_description, custom_prompt)
+    except Exception as e:
+        # System fault during LLM evaluation
+        await handle_system_fault(
+            conn, cur, candidate_id, user_id,
+            reason=f"LLM Evaluation Error: {str(e)}",
+            job_id=job_id,
+            batch_progress=batch_progress
+        )
+        return
+
     if not eval_result:
-        await conn.commit()
+        await handle_system_fault(
+            conn, cur, candidate_id, user_id,
+            reason="Evaluation pipeline returned null result.",
+            job_id=job_id,
+            batch_progress=batch_progress
+        )
         return
 
     await cur.execute("UPDATE candidates SET status = 'evaluated' WHERE id = %s", (candidate_id,))
@@ -113,7 +277,8 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
     await cur.execute(
         """INSERT INTO evaluations
            (candidate_id, overall_score, recommendation, summary, strengths, weaknesses, missing_skills)
-           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           RETURNING id""",
         (
             candidate_id, eval_result.overall_score, eval_result.recommendation,
             eval_result.summary, json.dumps(eval_result.strengths),
@@ -132,3 +297,37 @@ async def process_single_candidate(conn, cur, candidate_id: str, job_description
         )
 
     await conn.commit()
+
+    # Step 4: Broadcast real-time success update over WebSocket
+    processed_files, total_files = batch_progress
+    await ws_manager.broadcast_to_job(str(job_id), {
+        "type": "candidate_update",
+        "candidate_id": str(candidate_id),
+        "status": "evaluated",
+        "name": profile_data.name,
+        "overall_score": eval_result.overall_score,
+        "recommendation": eval_result.recommendation,
+        "processed_files": processed_files,
+        "total_files": total_files,
+    })
+
+    # Step 5: Webhook dispatch if configured
+    await cur.execute("SELECT webhook_url FROM jobs WHERE id = %s", (job_id,))
+    webhook_row = await cur.fetchone()
+    if webhook_row and webhook_row[0]:
+        import httpx
+        webhook_url = webhook_row[0]
+        payload = {
+            "event": "candidate.evaluated",
+            "candidate_id": str(candidate_id),
+            "job_id": str(job_id),
+            "name": profile_data.name,
+            "overall_score": eval_result.overall_score,
+            "recommendation": eval_result.recommendation,
+            "status": "evaluated"
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(webhook_url, json=payload, timeout=5.0)
+        except Exception as e:
+            logger.error(f"Webhook delivery failed for {webhook_url}: {e}")

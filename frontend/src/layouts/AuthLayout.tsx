@@ -1,10 +1,14 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { LayoutDashboard, LogOut, Menu, X, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, CreditCard } from 'lucide-react'
+import { useWallet } from '../context/WalletContext'
+import WalletModal from '../components/WalletModal'
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'API Docs', path: '/developer-docs', icon: Code2 },
+  { label: 'Settings', path: '/settings', icon: SettingsIcon },
 ]
 
 // Inline SVG logo mark
@@ -19,6 +23,7 @@ function LogoMark({ size = 18 }: { size?: number }) {
 
 export default function AuthLayout() {
   const { logout } = useAuth()
+  const { credits, openWalletModal } = useWallet()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -201,6 +206,42 @@ export default function AuthLayout() {
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
           <div style={{ flex: 1 }} />
+
+          {/* Wallet credit badge & top-up action */}
+          <button
+            onClick={openWalletModal}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              background: 'rgba(59, 130, 246, 0.08)',
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.16)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)')}
+            title="Resume credits balance. Click to recharge."
+          >
+            <CreditCard size={15} style={{ color: '#3b82f6' }} />
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--c-t1)' }}>
+              {credits} Credits
+            </span>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#3b82f6',
+                background: 'rgba(59, 130, 246, 0.2)',
+                padding: '2px 8px',
+                borderRadius: 12,
+              }}
+            >
+              + Top Up
+            </span>
+          </button>
         </header>
 
         {/* Page content */}
@@ -208,6 +249,9 @@ export default function AuthLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Global Wallet Top-up Modal */}
+      <WalletModal />
     </div>
   )
 }

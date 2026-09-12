@@ -32,6 +32,19 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class APIKeyCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+class APIKeyResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    api_key: Optional[str] = None # Only returned on creation
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 # ──────────────────────────────────────────────
 # Job Schemas
 # ──────────────────────────────────────────────
@@ -40,13 +53,19 @@ class JobCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=10)
     target_shortlist_count: int = Field(default=10, ge=1, le=100)
+    custom_prompt: Optional[str] = Field(None, description="Custom criteria prompt for AI")
+    active_days_limit: Optional[int] = Field(None, description="Days until job auto-closes", ge=1)
+    max_applications: Optional[int] = Field(None, description="Max resumes before auto-closing", ge=1)
 
 
 class JobUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     target_shortlist_count: Optional[int] = None
-    status: Optional[str] = None  # active, archived
+    status: Optional[str] = None  # active, closed
+    custom_prompt: Optional[str] = None
+    active_days_limit: Optional[int] = None
+    max_applications: Optional[int] = None
 
 
 class JobResponse(BaseModel):
@@ -57,6 +76,9 @@ class JobResponse(BaseModel):
     status: str
     created_at: datetime
     candidate_count: Optional[int] = 0
+    custom_prompt: Optional[str] = None
+    active_days_limit: Optional[int] = None
+    max_applications: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -127,6 +149,23 @@ class CandidateDetailResponse(BaseModel):
     created_at: datetime
     profile: Optional[CandidateProfileResponse] = None
     evaluation: Optional[EvaluationResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CandidateFeedbackCreate(BaseModel):
+    expected_score: Optional[int] = Field(None, ge=0, le=100)
+    expected_recommendation: Optional[str] = None
+    comment: str = Field(..., min_length=1)
+
+class CandidateFeedbackResponse(BaseModel):
+    id: uuid.UUID
+    candidate_id: uuid.UUID
+    expected_score: Optional[int] = None
+    expected_recommendation: Optional[str] = None
+    comment: str
+    created_at: datetime
 
     class Config:
         from_attributes = True

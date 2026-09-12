@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { Plus, Users, Loader2 } from 'lucide-react'
@@ -11,6 +11,9 @@ interface Job {
   status: string
   created_at: string
   candidate_count: number
+  custom_prompt?: string
+  active_days_limit?: number
+  max_applications?: number
 }
 
 function getBadgeClass(status: string) {
@@ -26,6 +29,9 @@ export default function Dashboard() {
   const [targetCount, setTargetCount] = useState(10)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [activeDaysLimit, setActiveDaysLimit] = useState<number | ''>('')
+  const [maxApplications, setMaxApplications] = useState<number | ''>('')
 
   const fetchJobs = async () => {
     try {
@@ -45,11 +51,21 @@ export default function Dashboard() {
     setCreating(true)
     setCreateError('')
     try {
-      await api.post('/jobs', { title, description, target_shortlist_count: targetCount })
+      await api.post('/jobs', {
+        title,
+        description,
+        target_shortlist_count: targetCount,
+        custom_prompt: customPrompt || null,
+        active_days_limit: activeDaysLimit || null,
+        max_applications: maxApplications || null
+      })
       setShowCreate(false)
       setTitle('')
       setDescription('')
       setTargetCount(10)
+      setCustomPrompt('')
+      setActiveDaysLimit('')
+      setMaxApplications('')
       fetchJobs()
     } catch (err: any) {
       setCreateError(err?.response?.data?.detail || 'Failed to create job')
@@ -176,6 +192,51 @@ export default function Dashboard() {
                   min={1}
                   max={100}
                 />
+              </div>
+
+              <div>
+                <label htmlFor="custom-prompt" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                  Custom AI Filtering Criteria (Optional)
+                </label>
+                <textarea
+                  id="custom-prompt"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="field"
+                  style={{ minHeight: 80, resize: 'vertical' }}
+                  placeholder="e.g. Focus heavily on candidates with startup experience..."
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label htmlFor="active-days" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                    Active Days Limit (Optional)
+                  </label>
+                  <input
+                    id="active-days"
+                    type="number"
+                    value={activeDaysLimit}
+                    onChange={(e) => setActiveDaysLimit(e.target.value ? Number(e.target.value) : '')}
+                    className="field"
+                    min={1}
+                    placeholder="e.g. 30"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="max-apps" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                    Max Applications (Optional)
+                  </label>
+                  <input
+                    id="max-apps"
+                    type="number"
+                    value={maxApplications}
+                    onChange={(e) => setMaxApplications(e.target.value ? Number(e.target.value) : '')}
+                    className="field"
+                    min={1}
+                    placeholder="e.g. 100"
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>

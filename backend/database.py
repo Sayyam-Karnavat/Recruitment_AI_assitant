@@ -14,6 +14,27 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
+    credits INT DEFAULT 50,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount_credits INT NOT NULL,
+    amount_inr INT DEFAULT 0,
+    transaction_type VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'success',
+    reference_id VARCHAR(255),
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    api_key_hash VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -24,6 +45,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     description TEXT NOT NULL,
     target_shortlist_count INT DEFAULT 10,
     status VARCHAR(20) DEFAULT 'active',
+    custom_prompt TEXT,
+    webhook_url VARCHAR(500),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -32,9 +55,20 @@ CREATE TABLE IF NOT EXISTS candidates (
     job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     file_hash VARCHAR(64) NOT NULL,
     filename VARCHAR(255) NOT NULL,
-    file_path VARCHAR(500) NOT NULL,
+    file_path VARCHAR(500),
     raw_text TEXT,
-    status VARCHAR(20) DEFAULT 'pending',
+    status VARCHAR(30) DEFAULT 'pending',
+    error_type VARCHAR(50),
+    error_reason TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS candidate_feedback (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
+    expected_score INT,
+    expected_recommendation VARCHAR(50),
+    comment TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -84,6 +118,7 @@ CREATE TABLE IF NOT EXISTS upload_batches (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_job_id ON candidates(job_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_file_hash ON candidates(file_hash);
 CREATE INDEX IF NOT EXISTS idx_candidate_profiles_candidate_id ON candidate_profiles(candidate_id);
@@ -91,6 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_candidate_id ON evaluations(candidate
 CREATE INDEX IF NOT EXISTS idx_evaluation_categories_evaluation_id ON evaluation_categories(evaluation_id);
 CREATE INDEX IF NOT EXISTS idx_upload_batches_job_id ON upload_batches(job_id);
 """
+
 
 
 async def init_db():

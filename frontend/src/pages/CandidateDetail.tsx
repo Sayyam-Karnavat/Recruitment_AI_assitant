@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../services/api'
 import { ChevronLeft, Loader2, Mail, Phone, MapPin, Briefcase } from 'lucide-react'
@@ -95,12 +95,44 @@ export default function CandidateDetail() {
   const [data, setData] = useState<CandidateData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Feedback State
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [expectedScore, setExpectedScore] = useState<number | ''>('')
+  const [expectedRecommendation, setExpectedRecommendation] = useState('')
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
   useEffect(() => {
     api.get(`/candidates/${candidateId}`)
       .then((res) => setData(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [candidateId])
+
+  const submitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmittingFeedback(true)
+    try {
+      await api.post(`/candidates/${candidateId}/feedback`, {
+        expected_score: expectedScore || null,
+        expected_recommendation: expectedRecommendation || null,
+        comment: feedbackComment
+      })
+      setFeedbackSuccess(true)
+      setTimeout(() => {
+        setShowFeedbackModal(false)
+        setFeedbackSuccess(false)
+        setExpectedScore('')
+        setExpectedRecommendation('')
+        setFeedbackComment('')
+      }, 2000)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSubmittingFeedback(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -233,6 +265,13 @@ export default function CandidateDetail() {
                         {evaluation.summary}
                       </p>
                     )}
+                    <button 
+                      onClick={() => setShowFeedbackModal(true)}
+                      className="btn btn-ghost" 
+                      style={{ marginTop: 16, padding: '4px 8px', fontSize: '0.75rem', color: 'var(--c-orange)' }}
+                    >
+                      Flag as Incorrect
+                    </button>
                   </div>
                 </div>
               </div>
@@ -341,6 +380,90 @@ export default function CandidateDetail() {
           )}
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div
+          className="fade-in"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+          }}
+          onClick={() => setShowFeedbackModal(false)}
+        >
+          <div
+            className="card fade-up delay-50"
+            style={{
+              width: '100%', maxWidth: 500, padding: 28,
+              background: 'var(--glass-bg)',
+              backdropFilter: 'var(--glass-blur)',
+              boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--c-t1)', marginBottom: 20 }}>
+              Flag Evaluation as Incorrect
+            </h2>
+            {feedbackSuccess ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-green)' }}>
+                <p>Thank you! Your feedback has been submitted to improve the AI.</p>
+              </div>
+            ) : (
+              <form onSubmit={submitFeedback} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                    Expected Score (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={expectedScore}
+                    onChange={(e) => setExpectedScore(Number(e.target.value) || '')}
+                    className="field"
+                    min={0} max={100}
+                    placeholder="e.g. 85"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                    Expected Recommendation (Optional)
+                  </label>
+                  <select
+                    value={expectedRecommendation}
+                    onChange={(e) => setExpectedRecommendation(e.target.value)}
+                    className="field"
+                  >
+                    <option value="">-- Select --</option>
+                    <option value="Strong Shortlist">Strong Shortlist</option>
+                    <option value="Shortlist">Shortlist</option>
+                    <option value="Maybe">Maybe</option>
+                    <option value="Reject">Reject</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
+                    Comment (Required)
+                  </label>
+                  <textarea
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    className="field"
+                    style={{ minHeight: 80, resize: 'vertical' }}
+                    placeholder="Why was this evaluation incorrect?"
+                    required
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button type="button" onClick={() => setShowFeedbackModal(false)} className="btn btn-ghost">Cancel</button>
+                  <button type="submit" disabled={submittingFeedback} className="btn btn-primary">
+                    {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

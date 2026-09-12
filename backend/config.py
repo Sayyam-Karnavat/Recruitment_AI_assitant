@@ -9,11 +9,15 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 1440
-    GROQ_API_KEY: str
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
     UPLOAD_DIR: str = "../uploads"
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     GOOGLE_CLIENT_ID: str = ""
+    REDIS_URL: str = ""
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
