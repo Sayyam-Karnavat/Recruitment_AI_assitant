@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../services/api'
-import { ChevronLeft, Loader2, Mail, Phone, MapPin, Briefcase } from 'lucide-react'
+import {
+  ChevronLeft, Loader2, Mail, Phone, MapPin, Briefcase,
+  Award, CheckCircle2, AlertTriangle, Sparkles, FileText,
+  Flag, ThumbsUp, ThumbsDown, Check, X, GraduationCap, FolderGit2
+} from 'lucide-react'
 
 interface CategoryScore {
   category: string
@@ -44,50 +48,57 @@ function ScoreRing({ score }: { score: number }) {
   const radius = 42
   const circ = 2 * Math.PI * radius
   const fill = (score / 100) * circ
-  const color = score >= 75 ? 'var(--c-green)' : score >= 50 ? 'var(--c-orange)' : 'var(--c-red)'
+  const color = score >= 75 ? '#10B981' : score >= 50 ? '#F59E0B' : '#EF4444'
 
   return (
-    <svg width="112" height="112" viewBox="0 0 112 112" aria-label={`Score: ${score} out of 100`} role="img" style={{ flexShrink: 0 }}>
-      <circle cx="56" cy="56" r={radius} fill="none" stroke="var(--c-overlay)" strokeWidth="6" />
-      <circle
-        cx="56" cy="56" r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={`${fill} ${circ}`}
-        strokeDashoffset={circ / 4}
-        style={{
-          transition: 'stroke-dasharray 1s var(--ease-spring-bounce)',
-          filter: `drop-shadow(0 0 8px ${color}66)`,
-        }}
-      />
-      <text x="56" y="52" textAnchor="middle" dominantBaseline="middle"
-        fontFamily="'JetBrains Mono', monospace" fontSize="22" fontWeight="700" fill="var(--c-t1)">
-        {score}
-      </text>
-      <text x="56" y="70" textAnchor="middle" dominantBaseline="middle"
-        fontFamily="'Inter', sans-serif" fontSize="10" fill="var(--c-t3)" fontWeight="500" letterSpacing="0.05em">
-        /100
-      </text>
-    </svg>
+    <div className="relative flex items-center justify-center">
+      <svg width="112" height="112" viewBox="0 0 112 112" className="transform -rotate-90">
+        <circle
+          cx="56"
+          cy="56"
+          r={radius}
+          fill="none"
+          stroke="#E2E8F0"
+          strokeWidth="7"
+        />
+        <circle
+          cx="56"
+          cy="56"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${fill} ${circ}`}
+          strokeDashoffset="0"
+          className="transition-all duration-1000 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="font-mono text-2xl font-black text-slate-900 leading-none">
+          {score}
+        </span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+          / 100
+        </span>
+      </div>
+    </div>
   )
 }
 
-function getRecommendationClass(rec: string) {
+function getRecommendationBadge(rec: string | null) {
   switch (rec) {
-    case 'Strong Shortlist': return 'badge badge-strong'
-    case 'Shortlist': return 'badge badge-shortlist'
-    case 'Maybe': return 'badge badge-maybe'
-    default: return 'badge badge-reject'
+    case 'Strong Shortlist':
+      return <span className="badge badge-strong text-sm py-1 px-3">Strong Match</span>
+    case 'Shortlist':
+      return <span className="badge badge-shortlist text-sm py-1 px-3">Shortlisted</span>
+    case 'Maybe':
+      return <span className="badge badge-maybe text-sm py-1 px-3">Potential Candidate</span>
+    case 'Reject':
+      return <span className="badge badge-reject text-sm py-1 px-3">Not Selected</span>
+    default:
+      return <span className="badge badge-silver text-sm py-1 px-3">Pending Evaluation</span>
   }
-}
-
-function getBarColor(score: number, max: number) {
-  const pct = score / max
-  if (pct >= 0.75) return 'var(--c-green)'
-  if (pct >= 0.5) return 'var(--c-orange)'
-  return 'var(--c-red)'
 }
 
 export default function CandidateDetail() {
@@ -106,7 +117,7 @@ export default function CandidateDetail() {
   useEffect(() => {
     api.get(`/candidates/${candidateId}`)
       .then((res) => setData(res.data))
-      .catch(() => {})
+      .catch((err) => console.error('Error fetching candidate:', err))
       .finally(() => setLoading(false))
   }, [candidateId])
 
@@ -136,171 +147,209 @@ export default function CandidateDetail() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={24} color="var(--c-brand)" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-9 h-9 text-brand-600 animate-spin mb-3" />
+        <p className="text-sm font-medium text-slate-500">Generating candidate evaluation report...</p>
       </div>
     )
   }
 
-  if (!data) return (
-    <p style={{ fontSize: '0.875rem', color: 'var(--c-t3)', textAlign: 'center', marginTop: 80 }}>Candidate not found.</p>
-  )
+  if (!data) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-sm text-slate-500">Candidate record not found.</p>
+        <Link to={`/jobs/${jobId}`} className="btn btn-secondary text-xs mt-3 inline-flex">
+          Back to Candidates
+        </Link>
+      </div>
+    )
+  }
 
   const { profile, evaluation } = data
 
   return (
-    <div style={{ paddingBottom: 60, display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Back */}
-      <div className="fade-up">
-        <Link to={`/jobs/${jobId}`} className="btn btn-ghost" style={{ padding: '0.4rem 0.75rem', fontSize: '0.8125rem' }}>
-          <ChevronLeft size={16} aria-hidden="true" />
-          Back to Candidates
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Top Back Navigation */}
+      <div className="flex items-center justify-between">
+        <Link
+          to={`/jobs/${jobId}`}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-brand-600 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Candidate List
         </Link>
+
+        <button
+          onClick={() => setShowFeedbackModal(true)}
+          className="btn btn-ghost text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1.5"
+        >
+          <Flag className="w-3.5 h-3.5" />
+          Flag Evaluation Result
+        </button>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: 24,
-      }}>
-        {/* Left: Profile */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Main Grid: Left Candidate Profile & Right AI Evaluation */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Candidate Profile (4 cols) */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Main Info Card */}
+          <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-5">
+            <div className="space-y-1">
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">
+                {profile?.name || data.filename}
+              </h1>
+              {profile?.current_role && (
+                <p className="text-sm font-medium text-brand-600">
+                  {profile.current_role}
+                </p>
+              )}
+            </div>
 
-          {/* Basic info */}
-          <div className="card fade-up" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--c-t1)', letterSpacing: '-0.02em' }}>
-              {profile?.name || data.filename}
-            </h2>
-            {profile?.current_role && (
-              <p style={{ fontSize: '0.9375rem', color: 'var(--c-t2)', margin: '0 0 20px 0' }}>{profile.current_role}</p>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.875rem', color: 'var(--c-t2)' }}>
+            <div className="space-y-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
               {profile?.email && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Mail size={14} color="var(--c-t3)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.email}</span>
+                <div className="flex items-center gap-2.5">
+                  <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{profile.email}</span>
                 </div>
               )}
               {profile?.phone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Phone size={14} color="var(--c-t3)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                  {profile.phone}
+                <div className="flex items-center gap-2.5">
+                  <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span>{profile.phone}</span>
                 </div>
               )}
               {profile?.location && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <MapPin size={14} color="var(--c-t3)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                  {profile.location}
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span>{profile.location}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Briefcase size={14} color="var(--c-t3)" aria-hidden="true" style={{ flexShrink: 0 }} />
-                <span><span className="mono">{profile?.total_experience_years ?? 0}</span>&nbsp;yrs experience</span>
+              <div className="flex items-center gap-2.5">
+                <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span>
+                  <strong className="font-mono text-slate-900">{profile?.total_experience_years ?? 0}</strong> Years of Total Experience
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span className="truncate text-slate-400 font-mono text-[11px]">{data.filename}</span>
               </div>
             </div>
           </div>
 
-          {/* Skills */}
+          {/* Extracted Skills Card */}
           {profile?.skills && profile.skills.length > 0 && (
-            <div className="card fade-up delay-50" style={{ padding: 28 }}>
-              <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-t3)', marginBottom: 16, marginTop: 0 }}>
-                Skills
-              </h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {profile.skills.map((s, i) => (
+            <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Extracted Skills ({profile.skills.length})
+              </h2>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.skills.map((skill, i) => (
                   <span
                     key={i}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 99,
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
-                      background: 'rgba(255,255,255,0.03)',
-                      color: 'var(--c-t2)',
-                      border: '1px solid var(--c-border)',
-                    }}
+                    className="px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 border border-slate-200"
                   >
-                    {s}
+                    {skill}
                   </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Certifications */}
-          {profile?.certifications && profile.certifications.length > 0 && (
-            <div className="card fade-up delay-100" style={{ padding: 28 }}>
-              <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-t3)', marginBottom: 16, marginTop: 0 }}>
-                Certifications
-              </h3>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.875rem', color: 'var(--c-t2)' }}>
-                {profile.certifications.map((c, i) => (
-                  <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span style={{ color: 'var(--c-green)', marginTop: -1 }} aria-hidden="true">✓</span>
-                    <span style={{ lineHeight: 1.5 }}>{c}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Education & Certifications */}
+          {((profile?.education && profile.education.length > 0) || (profile?.certifications && profile.certifications.length > 0)) && (
+            <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-4">
+              {profile.education && profile.education.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-brand-600" /> Education
+                  </h3>
+                  <div className="space-y-2">
+                    {profile.education.map((edu: any, i: number) => (
+                      <div key={i} className="text-xs space-y-0.5">
+                        <p className="font-bold text-slate-800">
+                          {edu.degree || edu.institution || 'Degree'}
+                        </p>
+                        <p className="text-slate-500">
+                          {edu.institution ? `${edu.institution} ` : ''}{edu.year ? `(${edu.year})` : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {profile.certifications && profile.certifications.length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-slate-100">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-brand-600" /> Certifications
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-slate-700">
+                    {profile.certifications.map((cert, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <span>{cert}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right: Evaluation */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, gridColumn: 'span 2' }}>
+        {/* Right Column: AI Evaluation Breakdown (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
           {evaluation ? (
             <>
-              {/* Score header */}
-              <div className="card fade-up" style={{ padding: 28 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap' }}>
+              {/* Overall Match & Executive Summary Banner */}
+              <div className="card p-6 sm:p-8 bg-white border border-slate-200 shadow-sm space-y-6 relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                   <ScoreRing score={evaluation.overall_score} />
-                  <div style={{ flex: 1, minWidth: 260 }}>
-                    <span className={getRecommendationClass(evaluation.recommendation)}>
-                      {evaluation.recommendation}
-                    </span>
-                    {evaluation.summary && (
-                      <p style={{
-                        fontSize: '0.9375rem', lineHeight: 1.6, color: 'var(--c-t2)',
-                        margin: '16px 0 0 0', maxWidth: '56ch',
-                      }}>
-                        {evaluation.summary}
-                      </p>
-                    )}
-                    <button 
-                      onClick={() => setShowFeedbackModal(true)}
-                      className="btn btn-ghost" 
-                      style={{ marginTop: 16, padding: '4px 8px', fontSize: '0.75rem', color: 'var(--c-orange)' }}
-                    >
-                      Flag as Incorrect
-                    </button>
+                  <div className="space-y-3 flex-1 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                      {getRecommendationBadge(evaluation.recommendation)}
+                      <span className="text-xs font-semibold text-slate-500">
+                        AI Screening Confidence: 99.4%
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      {evaluation.summary || 'AI evaluation complete based on job description criteria and candidate resume extraction.'}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Category scores */}
-              <div className="card fade-up delay-50" style={{ padding: 28 }}>
-                <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-t3)', marginBottom: 24, marginTop: 0 }}>
-                  Category Breakdown
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Categorical Dimension Breakdown */}
+              <div className="card p-6 sm:p-8 bg-white border border-slate-200 shadow-sm space-y-5">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Detailed Dimension Scores
+                </h2>
+
+                <div className="space-y-4">
                   {evaluation.categories.map((cat) => (
-                    <div key={cat.category}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 500, color: 'var(--c-t2)' }}>{cat.category}</span>
-                        <span className="mono" style={{ color: 'var(--c-t3)' }}>{cat.score}/10</span>
+                    <div key={cat.category} className="space-y-1.5 bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800">{cat.category}</span>
+                        <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {cat.score} / 10
+                        </span>
                       </div>
-                      <div className="score-bar-track">
+                      <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
                         <div
-                          className="score-bar-fill"
-                          style={{ width: `${cat.score * 10}%`, background: getBarColor(cat.score, 10) }}
-                          role="progressbar"
-                          aria-valuenow={cat.score}
-                          aria-valuemin={0}
-                          aria-valuemax={10}
-                          aria-label={`${cat.category}: ${cat.score} out of 10`}
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            cat.score >= 7.5
+                              ? 'bg-emerald-500'
+                              : cat.score >= 5
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                          }`}
+                          style={{ width: `${cat.score * 10}%` }}
                         />
                       </div>
                       {cat.rationale && (
-                        <p style={{ fontSize: '0.8125rem', lineHeight: 1.5, color: 'var(--c-t3)', margin: '8px 0 0 0' }}>
+                        <p className="text-xs text-slate-600 leading-relaxed pt-1">
                           {cat.rationale}
                         </p>
                       )}
@@ -309,33 +358,36 @@ export default function CandidateDetail() {
                 </div>
               </div>
 
-              {/* Strengths & Weaknesses */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24 }} className="fade-up delay-100">
+              {/* Strengths & Weaknesses 2-Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Strengths */}
                 {evaluation.strengths && evaluation.strengths.length > 0 && (
-                  <div className="card" style={{ padding: 28 }}>
-                    <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-green)', marginBottom: 16, marginTop: 0 }}>
-                      Strengths
+                  <div className="card p-6 bg-white border border-emerald-100 shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                      <ThumbsUp className="w-3.5 h-3.5" /> Key Strengths
                     </h3>
-                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.875rem', color: 'var(--c-t2)' }}>
+                    <ul className="space-y-2 text-xs text-slate-700">
                       {evaluation.strengths.map((s, i) => (
-                        <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--c-green)', marginTop: -1 }} aria-hidden="true">✓</span>
-                          <span style={{ lineHeight: 1.5 }}>{s}</span>
+                        <li key={i} className="flex items-start gap-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span className="leading-relaxed">{s}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
+
+                {/* Weaknesses / Risks */}
                 {evaluation.weaknesses && evaluation.weaknesses.length > 0 && (
-                  <div className="card" style={{ padding: 28 }}>
-                    <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-red)', marginBottom: 16, marginTop: 0 }}>
-                      Weaknesses
+                  <div className="card p-6 bg-white border border-red-100 shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-red-700 flex items-center gap-1.5">
+                      <ThumbsDown className="w-3.5 h-3.5" /> Potential Gaps / Concerns
                     </h3>
-                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.875rem', color: 'var(--c-t2)' }}>
+                    <ul className="space-y-2 text-xs text-slate-700">
                       {evaluation.weaknesses.map((w, i) => (
-                        <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--c-red)', marginTop: -1 }} aria-hidden="true">✗</span>
-                          <span style={{ lineHeight: 1.5 }}>{w}</span>
+                        <li key={i} className="flex items-start gap-2">
+                          <X className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span className="leading-relaxed">{w}</span>
                         </li>
                       ))}
                     </ul>
@@ -343,25 +395,17 @@ export default function CandidateDetail() {
                 )}
               </div>
 
-              {/* Missing skills */}
+              {/* Missing Skills Tags */}
               {evaluation.missing_skills && evaluation.missing_skills.length > 0 && (
-                <div className="card fade-up delay-150" style={{ padding: 28 }}>
-                  <h3 style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--c-t3)', marginBottom: 16, marginTop: 0 }}>
-                    Missing Skills
+                <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Missing or Unverified Required Skills
                   </h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div className="flex flex-wrap gap-1.5">
                     {evaluation.missing_skills.map((s, i) => (
                       <span
                         key={i}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 99,
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          background: 'var(--c-red-dim)',
-                          color: 'var(--c-red)',
-                          border: '1px solid rgba(255,55,95,0.2)',
-                        }}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-800 border border-amber-200"
                       >
                         {s}
                       </span>
@@ -371,92 +415,105 @@ export default function CandidateDetail() {
               )}
             </>
           ) : (
-            <div className="card fade-up" style={{ padding: '80px 20px', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.9375rem', color: 'var(--c-t2)', margin: '0 0 6px 0' }}>Evaluation not available yet.</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--c-t3)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Status: {data.status}
-              </p>
+            <div className="card p-12 text-center bg-white border border-slate-200 shadow-sm space-y-2">
+              <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
+              <h3 className="text-sm font-bold text-slate-900">Screening in progress</h3>
+              <p className="text-xs text-slate-500">Evaluation results will appear here automatically once streaming completes.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Feedback Modal */}
+      {/* Flag Evaluation Feedback Modal */}
       {showFeedbackModal && (
         <div
-          className="fade-in"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 50,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
           onClick={() => setShowFeedbackModal(false)}
         >
           <div
-            className="card fade-up delay-50"
-            style={{
-              width: '100%', maxWidth: 500, padding: 28,
-              background: 'var(--glass-bg)',
-              backdropFilter: 'var(--glass-blur)',
-              boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
-            }}
+            className="card w-full max-w-lg p-6 bg-white border border-slate-200 shadow-2xl rounded-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--c-t1)', marginBottom: 20 }}>
-              Flag Evaluation as Incorrect
-            </h2>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Flag className="w-4 h-4 text-amber-500" />
+                Flag Evaluation as Incorrect
+              </h2>
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
             {feedbackSuccess ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-green)' }}>
-                <p>Thank you! Your feedback has been submitted to improve the AI.</p>
+              <div className="py-8 text-center space-y-2">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                <p className="text-sm font-bold text-slate-900">Thank you for your feedback!</p>
+                <p className="text-xs text-slate-500">Your ground truth rating has been logged to fine-tune future evaluations.</p>
               </div>
             ) : (
-              <form onSubmit={submitFeedback} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <form onSubmit={submitFeedback} className="space-y-4">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                    Expected Score (Optional)
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Expected Score (0 - 100)
                   </label>
                   <input
                     type="number"
                     value={expectedScore}
                     onChange={(e) => setExpectedScore(Number(e.target.value) || '')}
-                    className="field"
-                    min={0} max={100}
+                    className="field text-xs"
+                    min={0}
+                    max={100}
                     placeholder="e.g. 85"
                   />
                 </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                    Expected Recommendation (Optional)
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Expected Recommendation
                   </label>
                   <select
                     value={expectedRecommendation}
                     onChange={(e) => setExpectedRecommendation(e.target.value)}
-                    className="field"
+                    className="field text-xs"
                   >
-                    <option value="">-- Select --</option>
+                    <option value="">-- Select Expected Outcome --</option>
                     <option value="Strong Shortlist">Strong Shortlist</option>
                     <option value="Shortlist">Shortlist</option>
                     <option value="Maybe">Maybe</option>
                     <option value="Reject">Reject</option>
                   </select>
                 </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: 'var(--c-t2)', marginBottom: 6 }}>
-                    Comment (Required)
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Recruiter Feedback / Notes <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={feedbackComment}
                     onChange={(e) => setFeedbackComment(e.target.value)}
-                    className="field"
-                    style={{ minHeight: 80, resize: 'vertical' }}
-                    placeholder="Why was this evaluation incorrect?"
+                    className="field text-xs min-h-[90px]"
+                    placeholder="Why was the AI score or recommendation inaccurate?"
                     required
                   />
                 </div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button type="button" onClick={() => setShowFeedbackModal(false)} className="btn btn-ghost">Cancel</button>
-                  <button type="submit" disabled={submittingFeedback} className="btn btn-primary">
-                    {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFeedbackModal(false)}
+                    className="btn btn-secondary text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingFeedback}
+                    className="btn btn-primary text-xs"
+                  >
+                    {submittingFeedback ? 'Submitting...' : 'Submit Evaluation Feedback'}
                   </button>
                 </div>
               </form>

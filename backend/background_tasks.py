@@ -271,6 +271,27 @@ async def process_single_candidate(
         )
         return
 
+    # Fetch job min_passing_score threshold
+    await cur.execute("SELECT min_passing_score FROM jobs WHERE id = %s", (job_id,))
+    job_threshold_row = await cur.fetchone()
+    min_passing_score = (job_threshold_row[0] if job_threshold_row and job_threshold_row[0] is not None else 50)
+
+    final_score = eval_result.overall_score
+    final_recommendation = eval_result.recommendation
+    final_summary = eval_result.summary or ""
+    final_weaknesses = list(eval_result.weaknesses or [])
+
+    # Enforce minimum passing threshold (Auto-Reject)
+    if final_score < min_passing_score:
+        final_recommendation = "Reject"
+        rejection_reason = f"Candidate scored {final_score}/100, which is below the employer's minimum required passing threshold of {min_passing_score}/100."
+        if not final_summary:
+            final_summary = rejection_reason
+        else:
+            final_summary = f"{final_summary} (Auto-Rejected: {rejection_reason})"
+        if rejection_reason not in final_weaknesses:
+            final_weaknesses.append(rejection_reason)
+
     await cur.execute("UPDATE candidates SET status = 'evaluated' WHERE id = %s", (candidate_id,))
 
     # Insert evaluation
@@ -280,9 +301,9 @@ async def process_single_candidate(
            VALUES (%s, %s, %s, %s, %s, %s, %s)
            RETURNING id""",
         (
-            candidate_id, eval_result.overall_score, eval_result.recommendation,
-            eval_result.summary, json.dumps(eval_result.strengths),
-            json.dumps(eval_result.weaknesses), json.dumps(eval_result.missing_skills),
+            candidate_id, final_score, final_recommendation,
+            final_summary, json.dumps(eval_result.strengths),
+            json.dumps(final_weaknesses), json.dumps(eval_result.missing_skills),
         )
     )
     eval_row = await cur.fetchone()
@@ -305,8 +326,8 @@ async def process_single_candidate(
         "candidate_id": str(candidate_id),
         "status": "evaluated",
         "name": profile_data.name,
-        "overall_score": eval_result.overall_score,
-        "recommendation": eval_result.recommendation,
+        "overall_score": final_score,
+        "recommendation": final_recommendation,
         "processed_files": processed_files,
         "total_files": total_files,
     })

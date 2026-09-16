@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, CreditCard, ShieldCheck, CheckCircle2, History, ArrowDownRight, ArrowUpRight, RotateCcw, Sparkles } from 'lucide-react'
+import {
+  X, CreditCard, ShieldCheck, CheckCircle2, History, ArrowDownRight,
+  ArrowUpRight, Sparkles, Crown, Zap, AlertCircle
+} from 'lucide-react'
 import { useWallet, WalletPackage } from '../context/WalletContext'
 import api from '../services/api'
 
@@ -21,7 +24,7 @@ declare global {
 }
 
 export default function WalletModal() {
-  const { credits, packages, isMockMode, isWalletModalOpen, closeWalletModal, refreshBalance } = useWallet()
+  const { credits, packages, isMockMode, isWalletModalOpen, closeWalletModal, refreshBalance, isUnlimited, userEmail } = useWallet()
   const [selectedPkgId, setSelectedPkgId] = useState<string>('tier_100')
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -30,7 +33,8 @@ export default function WalletModal() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loadingTx, setLoadingTx] = useState<boolean>(false)
 
-  // Load transactions when switching to history tab
+  const isVipUser = isUnlimited || userEmail === 'sanyam.karnavat5@gmail.com'
+
   useEffect(() => {
     if (activeTab === 'history' && isWalletModalOpen) {
       loadTransactions()
@@ -60,13 +64,11 @@ export default function WalletModal() {
     setSuccessMsg(null)
 
     try {
-      // 1. Create order on backend
       const orderRes = await api.post('/wallet/create-order', { package_id: selectedPkg.id })
       const orderData = orderRes.data
 
       if (orderData.is_mock) {
-        // Mock / Sandbox checkout
-        await new Promise(r => setTimeout(r, 600)) // brief UX pause
+        await new Promise(r => setTimeout(r, 600))
         const verifyRes = await api.post('/wallet/verify-payment', {
           package_id: selectedPkg.id,
           razorpay_order_id: orderData.order_id,
@@ -82,7 +84,6 @@ export default function WalletModal() {
         return
       }
 
-      // Real Razorpay Checkout flow
       const loadScript = () => {
         return new Promise<boolean>((resolve) => {
           if (window.Razorpay) return resolve(true)
@@ -128,7 +129,7 @@ export default function WalletModal() {
           }
         },
         theme: {
-          color: '#3b82f6'
+          color: '#2563eb'
         }
       }
 
@@ -143,354 +144,191 @@ export default function WalletModal() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
-    >
-      <div
-        className="glass w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-        style={{
-          background: 'var(--c-surface)',
-          borderRadius: 16,
-          border: '1px solid var(--c-border)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
-        }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+      <div className="card w-full max-w-lg bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-scale-up space-y-0">
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--c-border)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: 'rgba(59, 130, 246, 0.15)',
-                color: '#3b82f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <CreditCard size={20} />
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+              <CreditCard className="w-5 h-5" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--c-t1)' }}>
-                Wallet & Credits
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--c-t3)' }}>
-                1 Credit = 1 Resume Screened & Evaluated
-              </p>
+              <h3 className="text-base font-bold text-slate-900">Wallet & Screening Credits</h3>
+              <p className="text-xs text-slate-500">1 Credit = 1 Candidate Resume AI Screened</p>
             </div>
           </div>
-          <button onClick={closeWalletModal} className="btn-icon" aria-label="Close modal">
-            <X size={18} />
+          <button
+            onClick={closeWalletModal}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Balance Card Banner */}
-        <div
-          style={{
-            margin: '16px 20px 8px',
-            padding: '16px',
-            borderRadius: 12,
-            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 51, 234, 0.12))',
-            border: '1px solid rgba(59, 130, 246, 0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        {/* Balance Highlight Banner */}
+        <div className="p-5 bg-gradient-to-r from-brand-50 via-slate-50 to-indigo-50 border-b border-slate-200/80 flex items-center justify-between">
           <div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--c-t3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Current Available Balance
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Available Screening Balance
             </span>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--c-t1)' }}>
-                {credits}
-              </span>
-              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#3b82f6' }}>
-                Credits
-              </span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              {isVipUser ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-black text-slate-900">Unlimited</span>
+                  <span className="px-2 py-0.5 rounded-md bg-brand-600 text-white text-[11px] font-mono font-bold">
+                    ∞ VIP PRO
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-2xl font-black text-slate-900 font-mono">{credits}</span>
+                  <span className="text-xs font-bold text-brand-600">Credits</span>
+                </>
+              )}
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className="badge badge-blue" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-              ₹5.00 / Resume
-            </span>
-            {isMockMode && (
-              <div style={{ fontSize: '0.7rem', color: 'var(--c-t3)', marginTop: 4 }}>
-                (Sandbox Mode Active)
-              </div>
+
+          <div className="text-right">
+            {isVipUser ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full border border-emerald-200">
+                <Crown className="w-3.5 h-3.5 text-amber-600" /> Free Master Tier
+              </span>
+            ) : (
+              <span className="badge badge-blue text-xs">
+                ₹5.00 / Resume
+              </span>
             )}
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--c-border)', padding: '0 20px', gap: 16 }}>
+        <div className="flex border-b border-slate-100 px-5 gap-4">
           <button
             onClick={() => setActiveTab('packages')}
-            style={{
-              padding: '10px 4px',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: activeTab === 'packages' ? '#3b82f6' : 'var(--c-t3)',
-              borderBottom: activeTab === 'packages' ? '2px solid #3b82f6' : '2px solid transparent',
-            }}
+            className={`py-3 text-xs font-bold border-b-2 transition-all ${
+              activeTab === 'packages'
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
           >
-            Buy Credits
+            Credit Packages
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            style={{
-              padding: '10px 4px',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: activeTab === 'history' ? '#3b82f6' : 'var(--c-t3)',
-              borderBottom: activeTab === 'history' ? '2px solid #3b82f6' : '2px solid transparent',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
+            className={`py-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'history'
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
           >
-            <History size={14} /> Audit Log
+            <History className="w-3.5 h-3.5" /> Billing History
           </button>
         </div>
 
         {/* Tab 1: Packages */}
         {activeTab === 'packages' && (
-          <div style={{ padding: '16px 20px', maxHeight: '55vh', overflowY: 'auto' }}>
-            {/* Guarantee Callout */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                padding: '10px 12px',
-                borderRadius: 8,
-                background: 'rgba(16, 185, 129, 0.08)',
-                border: '1px solid rgba(16, 185, 129, 0.2)',
-                marginBottom: 16,
-              }}
-            >
-              <ShieldCheck size={18} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-              <p style={{ margin: 0, fontSize: '0.775rem', color: 'var(--c-t2)', lineHeight: 1.4 }}>
-                <strong>Guarded Credit Protection:</strong> Credits are only consumed for successful evaluations or unreadable documents. System faults (timeouts, server errors) are <em>always automatically refunded</em>.
-              </p>
-            </div>
+          <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            {isVipUser && (
+              <div className="p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-xs text-brand-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-brand-600" />
+                  Unlimited Usage Enabled for {userEmail}
+                </p>
+                <p className="text-brand-700 text-[11px] leading-relaxed">
+                  Your account is granted full, unlimited AI resume screening access. You do not need to purchase credits, but you may test mock packages anytime.
+                </p>
+              </div>
+            )}
 
-            {/* Package selector grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
+            {/* Package Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {packages.map((pkg: WalletPackage) => {
                 const isSelected = selectedPkgId === pkg.id
                 return (
                   <div
                     key={pkg.id}
                     onClick={() => setSelectedPkgId(pkg.id)}
-                    style={{
-                      padding: '12px',
-                      borderRadius: 10,
-                      border: isSelected ? '2px solid #3b82f6' : '1px solid var(--c-border)',
-                      background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'var(--c-surface-raised)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      position: 'relative',
-                    }}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all relative ${
+                      isSelected
+                        ? 'border-brand-600 bg-brand-50/50 ring-2 ring-brand-500/20 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
                   >
                     {pkg.id === 'tier_100' && (
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: -8,
-                          right: 8,
-                          background: '#3b82f6',
-                          color: '#fff',
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          padding: '1px 6px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        POPULAR
+                      <span className="absolute -top-2 right-3 bg-brand-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                        Popular
                       </span>
                     )}
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--c-t1)' }}>
-                      {pkg.credits} Credits
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-                      <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--c-t1)' }}>
-                        ₹{pkg.amount_inr}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--c-t3)' }}>
-                        (₹{pkg.cost_per_credit}/res)
-                      </span>
+                    <p className="text-xs font-bold text-slate-900">{pkg.credits} Credits</p>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="text-lg font-black text-slate-900 font-mono">₹{pkg.amount_inr}</span>
+                      <span className="text-[10px] text-slate-400">({pkg.cost_per_credit}₹/res)</span>
                     </div>
                   </div>
                 )
               })}
             </div>
 
-            {/* Messages */}
             {successMsg && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  color: '#10b981',
-                  fontSize: '0.825rem',
-                  marginBottom: 14,
-                }}
-              >
-                <CheckCircle2 size={16} />
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                 <span>{successMsg}</span>
               </div>
             )}
 
             {errorMsg && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  color: '#ef4444',
-                  fontSize: '0.825rem',
-                  marginBottom: 14,
-                }}
-              >
-                {errorMsg}
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* Action button */}
             <button
               onClick={handleCheckout}
               disabled={isProcessing}
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+              className="btn btn-primary w-full py-3 text-xs font-bold shadow-md shadow-brand-500/20"
             >
               {isProcessing ? (
-                <span>Processing Payment...</span>
+                <span>Processing Order...</span>
               ) : (
-                <>
-                  <Sparkles size={16} />
-                  <span>Top Up {selectedPkg?.credits} Credits for ₹{selectedPkg?.amount_inr}</span>
-                </>
+                <span className="flex items-center justify-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Top Up {selectedPkg.credits} Credits for ₹{selectedPkg.amount_inr}
+                </span>
               )}
             </button>
+
+            <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Instant auto-credit upon payment • Guaranteed refund on system faults</span>
+            </div>
           </div>
         )}
 
-        {/* Tab 2: Transaction History */}
+        {/* Tab 2: Billing Audit Log */}
         {activeTab === 'history' && (
-          <div style={{ padding: '16px 20px', maxHeight: '55vh', overflowY: 'auto' }}>
+          <div className="p-5 max-h-[60vh] overflow-y-auto space-y-3">
             {loadingTx ? (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--c-t3)', fontSize: '0.875rem' }}>
-                Loading transaction history...
-              </div>
+              <div className="py-12 text-center text-xs text-slate-400">Loading audit history...</div>
             ) : transactions.length === 0 ? (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--c-t3)', fontSize: '0.875rem' }}>
-                No wallet transactions recorded yet.
-              </div>
+              <div className="py-12 text-center text-xs text-slate-400">No transactions recorded yet.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {transactions.map(tx => {
-                  const isPositive = tx.amount_credits > 0
-                  const isRefund = tx.transaction_type === 'refund'
-                  return (
-                    <div
-                      key={tx.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        background: 'var(--c-surface-raised)',
-                        border: '1px solid var(--c-border)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 6,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: isRefund
-                              ? 'rgba(234, 179, 8, 0.15)'
-                              : isPositive
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : 'rgba(239, 68, 68, 0.15)',
-                            color: isRefund
-                              ? '#eab308'
-                              : isPositive
-                              ? '#10b981'
-                              : '#ef4444',
-                          }}
-                        >
-                          {isRefund ? (
-                            <RotateCcw size={14} />
-                          ) : isPositive ? (
-                            <ArrowDownRight size={14} />
-                          ) : (
-                            <ArrowUpRight size={14} />
-                          )}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--c-t1)' }}>
-                            {tx.description}
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--c-t3)' }}>
-                            {tx.created_at ? new Date(tx.created_at).toLocaleString() : ''}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            fontSize: '0.875rem',
-                            color: isPositive ? '#10b981' : 'var(--c-t1)',
-                          }}
-                        >
-                          {isPositive ? `+${tx.amount_credits}` : tx.amount_credits} Credits
-                        </span>
-                        {tx.amount_inr > 0 && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--c-t3)' }}>
-                            ₹{tx.amount_inr}
-                          </div>
-                        )}
-                      </div>
+              <div className="divide-y divide-slate-100">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className="py-3 flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-slate-800">{tx.description || tx.transaction_type}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">
+                        {new Date(tx.created_at).toLocaleDateString()} &middot; ID: {tx.reference_id?.slice(0, 10)}...
+                      </p>
                     </div>
-                  )
-                })}
+                    <div className="text-right font-mono font-bold">
+                      <span className={tx.amount_credits > 0 ? 'text-emerald-600' : 'text-slate-700'}>
+                        {tx.amount_credits > 0 ? `+${tx.amount_credits}` : tx.amount_credits} Credits
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

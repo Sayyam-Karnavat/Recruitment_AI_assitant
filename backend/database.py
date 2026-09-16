@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS api_keys (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS candidate_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(200),
+    picture VARCHAR(500),
+    google_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -47,6 +56,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     status VARCHAR(20) DEFAULT 'active',
     custom_prompt TEXT,
     webhook_url VARCHAR(500),
+    active_days_limit INT,
+    max_applications INT,
+    min_passing_score INT DEFAULT 50,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -58,6 +70,8 @@ CREATE TABLE IF NOT EXISTS candidates (
     file_path VARCHAR(500),
     raw_text TEXT,
     status VARCHAR(30) DEFAULT 'pending',
+    candidate_email VARCHAR(255),
+    candidate_name VARCHAR(200),
     error_type VARCHAR(50),
     error_reason TEXT,
     created_at TIMESTAMP DEFAULT NOW()
@@ -130,11 +144,23 @@ CREATE INDEX IF NOT EXISTS idx_upload_batches_job_id ON upload_batches(job_id);
 
 
 async def init_db():
-    """Create all tables if they don't exist. Seeds admin user."""
+    """Create all tables if they don't exist and run dynamic column migrations."""
     conn = await psycopg.AsyncConnection.connect(settings.DATABASE_URL)
     try:
         async with conn.cursor() as cur:
             await cur.execute(SCHEMA)
+            
+            # Migrations for existing tables
+            await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS custom_prompt TEXT;")
+            await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS webhook_url VARCHAR(500);")
+            await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS active_days_limit INT;")
+            await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_applications INT;")
+            await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS min_passing_score INT DEFAULT 50;")
+            await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS candidate_email VARCHAR(255);")
+            await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS candidate_name VARCHAR(200);")
+            await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_type VARCHAR(50);")
+            await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_reason TEXT;")
+            
             # Seed admin user if not exists
             await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")
             if not await cur.fetchone():

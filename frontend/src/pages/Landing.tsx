@@ -1,7 +1,7 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star } from 'lucide-react'
 
-// Animated counter — Apple: "take a small input, make a big output"
 function AnimatedCounter({ target, duration = 1400 }: { target: number; duration?: number }) {
   const [value, setValue] = useState(0)
   const rafRef = useRef<number>()
@@ -12,7 +12,6 @@ function AnimatedCounter({ target, duration = 1400 }: { target: number; duration
       if (!startRef.current) startRef.current = timestamp
       const elapsed = timestamp - startRef.current
       const progress = Math.min(elapsed / duration, 1)
-      // Ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
       setValue(Math.round(eased * target))
       if (progress < 1) rafRef.current = requestAnimationFrame(step)
@@ -26,265 +25,264 @@ function AnimatedCounter({ target, duration = 1400 }: { target: number; duration
 
 const features = [
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <path d="M4 3h9l4 4v10H4V3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-        <path d="M13 3v4h4M6.5 9h7M6.5 12h7M6.5 15h4.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
-      </svg>
-    ),
-    accent: '#7B7FF5',
-    bg: 'rgba(91,95,237,0.10)',
-    title: 'Bulk Upload',
-    desc: 'Drop 100+ resumes at once — PDF, DOCX, or ZIP. Processing starts the instant files land.',
+    icon: <Share2 className="w-5 h-5 text-blue-600" />,
+    title: 'LinkedIn-Ready Public Links',
+    desc: 'Generate shareable public career links with 1 click. Candidates apply directly while AI screens them instantly.',
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <path d="M10 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      </svg>
-    ),
-    accent: '#34C759',
-    bg: 'rgba(52,199,89,0.10)',
-    title: 'Instant Scoring',
-    desc: 'AI evaluates every resume across 7 dimensions in seconds — not hours.',
+    icon: <Cpu className="w-5 h-5 text-sky-600" />,
+    title: 'Multi-Dimensional AI Evaluation',
+    desc: 'Scores resumes across technical depth, experience duration, project quality, and role compatibility in seconds.',
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <path d="M3 15l4-6 4 3 3-5 3 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.5"/>
-      </svg>
-    ),
-    accent: '#FF9F0A',
-    bg: 'rgba(255,159,10,0.10)',
-    title: 'Ranked Results',
-    desc: 'Candidates sorted by fit score with per-category rationale. No black box, no guessing.',
+    icon: <Layers className="w-5 h-5 text-indigo-600" />,
+    title: 'Bulk & Cloud Ingestion',
+    desc: 'Drop 100+ resumes via nested ZIPs, Google Drive, or OneDrive. Automatic in-memory stream parsing with 0 disk footprint.',
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/>
-        <path d="M10 6.5v4l2.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    ),
-    accent: '#5B5FED',
-    bg: 'rgba(91,95,237,0.10)',
-    title: 'Real-time Progress',
-    desc: 'Live batch tracking — watch each resume process with a status feed as it happens.',
+    icon: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
+    title: 'Anti-Cheat Candidate Lock',
+    desc: 'Google SSO & GitHub OAuth verification stops repeated resume gaming and ensures verified applicant identity.',
   },
 ]
 
 const stats = [
-  { value: 100, suffix: '+', label: 'Resumes per batch' },
-  { value: 7, suffix: '', label: 'Scoring dimensions' },
-  { value: 10, suffix: '×', label: 'Faster than manual' },
+  { value: 1000, suffix: '+', label: 'Active Recruiters' },
+  { value: 150000, suffix: '+', label: 'Resumes Evaluated' },
+  { value: 95, suffix: '%', label: 'Screening Accuracy' },
+  { value: 10, suffix: 'x', label: 'Faster Hiring Time' },
 ]
 
 export default function Landing() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--c-base)', position: 'relative', overflow: 'hidden' }}>
-
-      {/* ── Mesh gradient background ── */}
-      <div aria-hidden="true" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-        {/* Large violet orb — top center */}
-        <div style={{
-          position: 'absolute', top: '-15%', left: '50%', transform: 'translateX(-50%)',
-          width: '70vw', height: '60vw', maxWidth: 800, maxHeight: 700,
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(91,95,237,0.15) 0%, transparent 65%)',
-          filter: 'blur(60px)',
-        }} />
-        {/* Copper orb — bottom right */}
-        <div style={{
-          position: 'absolute', bottom: '5%', right: '-10%',
-          width: '40vw', height: '40vw', maxWidth: 500,
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(201,135,58,0.10) 0%, transparent 70%)',
-          filter: 'blur(50px)',
-        }} />
-        {/* Subtle grid */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `linear-gradient(rgba(91,95,237,0.025) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(91,95,237,0.025) 1px, transparent 1px)`,
-          backgroundSize: '56px 56px',
-        }} />
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans relative overflow-hidden">
+      {/* Background gradients */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-100/60 via-sky-50/40 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-[600px] -right-40 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-3xl" />
       </div>
 
-      {/* ── Nav ── */}
-      <nav style={{
-        position: 'relative', zIndex: 10,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 32px', maxWidth: 1100, margin: '0 auto', width: '100%',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            width: 34, height: 34,
-            background: 'var(--c-brand)',
-            borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <rect x="2" y="2" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M5.5 6.5h7M5.5 9h7M5.5 11.5h4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-          </span>
-          <span style={{ fontWeight: 700, fontSize: '0.9375rem', letterSpacing: '-0.025em', color: 'var(--c-t1)' }}>
-            ResumeAI
+      {/* Navigation */}
+      <header className="relative z-10 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 text-decoration-none">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <Sparkles size={16} />
+            </div>
+            <span className="font-bold text-lg tracking-tight text-slate-900">
+              Resume<span className="text-blue-600">AI</span>
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <Link
+              to="/developer-docs"
+              className="text-sm font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 transition-colors hidden sm:inline-block"
+            >
+              API Docs
+            </Link>
+            <Link
+              to="/login"
+              className="text-sm font-semibold text-slate-700 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/login"
+              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm shadow-blue-500/25 transition-all flex items-center gap-1.5"
+            >
+              Get Started Free <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <main className="relative z-10 flex-1 max-w-6xl mx-auto px-6 pt-16 pb-24 text-center">
+        {/* Top Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 shadow-xs mb-8 fade-up">
+          <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+            Next-Gen Semantic Recruitment AI
           </span>
         </div>
 
-        <Link to="/login" className="btn btn-ghost" style={{ fontSize: '0.875rem' }}>
-          Sign In
-        </Link>
-      </nav>
-
-      {/* ── Hero ── */}
-      <main style={{
-        position: 'relative', zIndex: 10,
-        flex: 1,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        textAlign: 'center',
-        padding: '40px 24px 60px',
-        maxWidth: 900, margin: '0 auto', width: '100%',
-      }}>
-        {/* Pill label */}
-        <div className="fade-up" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          background: 'rgba(91,95,237,0.1)',
-          border: '1px solid rgba(91,95,237,0.22)',
-          borderRadius: 99,
-          padding: '5px 14px',
-          marginBottom: 28,
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          color: 'var(--c-brand-hi)',
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--c-brand-hi)', boxShadow: '0 0 8px var(--c-brand)' }} />
-          AI-Powered Recruitment Intelligence
-        </div>
-
-        {/* Headline */}
-        <h1 className="fade-up delay-50" style={{
-          fontSize: 'clamp(2.5rem, 6vw, 4.25rem)',
-          fontWeight: 800,
-          lineHeight: 1.04,
-          letterSpacing: '-0.04em',
-          color: 'var(--c-t1)',
-          marginBottom: 22,
-          maxWidth: '18ch',
-        }}>
-          Screen resumes in{' '}
-          <span className="gradient-text">minutes,</span>
-          {' '}not days.
+        {/* Main Title */}
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.08] max-w-4xl mx-auto mb-6 fade-up">
+          Screen 1,000+ Resumes with{' '}
+          <span className="gradient-text">Human Precision</span> in Seconds.
         </h1>
 
-        <p className="fade-up delay-100" style={{
-          fontSize: '1.0625rem',
-          lineHeight: 1.65,
-          color: 'var(--c-t2)',
-          maxWidth: 480,
-          marginBottom: 36,
-          fontWeight: 400,
-        }}>
-          Upload your job description and candidate resumes. Our AI reads,
-          scores, and ranks every applicant with per-category reasoning you can trust.
+        <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed fade-up">
+          Create customized job pipelines, share candidate application links directly on LinkedIn, and let multi-dimensional LLM scoring rank your top candidates automatically.
         </p>
 
-        <div className="fade-up delay-150" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link to="/login" className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', fontSize: '0.9375rem' }}>
-            Start Screening Free
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M2 7h10M7.5 2.5 12 7l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+        {/* CTA Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-16 fade-up">
+          <Link
+            to="/login"
+            className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-2"
+          >
+            Start Free Screening (50 Credits)
+            <ArrowRight size={16} />
+          </Link>
+          <Link
+            to="/developer-docs"
+            className="px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-base border border-slate-200 shadow-sm transition-all"
+          >
+            Explore Developer APIs
           </Link>
         </div>
 
-        {/* Signature element: live score counter */}
-        <div className="fade-up delay-200" style={{
-          marginTop: 56,
-          padding: '24px 40px',
-          background: 'var(--c-surface)',
-          border: '1px solid var(--c-border-hi)',
-          borderRadius: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 48,
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-        }}>
+        {/* Interactive Candidate Ranking Preview Card */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 max-w-4xl mx-auto text-left mb-20 fade-up">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-100">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                Live AI Shortlist Engine
+              </span>
+              <h3 className="text-lg font-bold text-slate-900 mt-2">Senior Full Stack Engineer</h3>
+              <p className="text-xs text-slate-500">128 applicants screened · 12 shortlisted · Average time: 2.8s/resume</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full">
+                <CheckCircle2 size={13} /> Active Pipeline
+              </span>
+            </div>
+          </div>
+
+          {/* Sample Candidates */}
+          <div className="mt-4 space-y-3">
+            {[
+              {
+                rank: '#1',
+                name: 'Ananya Sharma',
+                exp: '6.5 yrs exp',
+                score: 96,
+                match: 'Strong Match',
+                color: 'emerald',
+                skills: ['FastAPI', 'React 18', 'Distributed Systems', 'PostgreSQL'],
+              },
+              {
+                rank: '#2',
+                name: 'Rohan Mehta',
+                exp: '5.2 yrs exp',
+                score: 91,
+                match: 'Strong Match',
+                color: 'emerald',
+                skills: ['Python', 'TypeScript', 'Docker', 'Redis'],
+              },
+              {
+                rank: '#3',
+                name: 'Devansh Patel',
+                exp: '4.0 yrs exp',
+                score: 84,
+                match: 'Shortlist',
+                color: 'blue',
+                skills: ['Node.js', 'React', 'TailwindCSS', 'AWS'],
+              },
+            ].map((c) => (
+              <div
+                key={c.name}
+                className="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/20 transition-all bg-slate-50/50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 font-extrabold text-sm text-slate-700 flex items-center justify-center shadow-xs">
+                    {c.rank}
+                  </span>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">{c.name}</h4>
+                    <span className="text-xs text-slate-500">{c.exp}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 my-2 sm:my-0">
+                  {c.skills.map((s) => (
+                    <span key={s} className="text-[11px] font-medium bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-base font-extrabold text-slate-900">{c.score}%</span>
+                    <span className="block text-[10px] font-bold uppercase text-emerald-600">{c.match}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Live Counters */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm mb-20 fade-up">
           {stats.map(({ value, suffix, label }) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontVariantNumeric: 'tabular-nums',
-                fontSize: '2.25rem',
-                fontWeight: 700,
-                color: 'var(--c-copper)',
-                lineHeight: 1,
-                letterSpacing: '-0.03em',
-              }}>
+            <div key={label} className="text-center">
+              <div className="text-3xl sm:text-4xl font-extrabold text-blue-600 tracking-tight">
                 <AnimatedCounter target={value} />
                 {suffix}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--c-t3)', marginTop: 6, fontWeight: 500, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">
                 {label}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Features grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 14,
-          marginTop: 52,
-          width: '100%',
-          maxWidth: 860,
-        }}>
-          {features.map((f, i) => (
+        {/* Features Grid */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            Built for Modern Recruitment Teams
+          </h2>
+          <p className="text-slate-600 max-w-lg mx-auto mt-2 text-sm">
+            Everything you need to automate resume intake, screening, and evaluation with enterprise accuracy.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left mb-20">
+          {features.map((f) => (
             <div
               key={f.title}
-              className="card fade-up"
-              style={{
-                padding: '20px',
-                textAlign: 'left',
-                animationDelay: `${220 + i * 60}ms`,
-              }}
+              className="bg-white border border-slate-200 hover:border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
             >
-              <div style={{
-                width: 38, height: 38,
-                background: f.bg,
-                color: f.accent,
-                borderRadius: 10,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 14,
-              }}>
-                {f.icon}
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
+                  {f.icon}
+                </div>
+                <h3 className="font-bold text-base text-slate-900 mb-2">{f.title}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">{f.desc}</p>
               </div>
-              <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--c-t1)', marginBottom: 6 }}>
-                {f.title}
-              </h3>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--c-t2)', lineHeight: 1.6 }}>
-                {f.desc}
-              </p>
             </div>
           ))}
         </div>
+
+        {/* Bottom CTA */}
+        <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-10 sm:p-14 text-white text-center shadow-xl shadow-blue-600/20">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
+            Ready to streamline your hiring pipeline?
+          </h2>
+          <p className="text-blue-100 max-w-xl mx-auto text-base mb-8">
+            Create your first job posting in under 2 minutes, get your LinkedIn-ready shareable link, and experience semantic AI screening today.
+          </p>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-blue-700 font-bold text-base hover:bg-blue-50 shadow-lg transition-all"
+          >
+            Get Started with 50 Free Credits <ArrowRight size={16} />
+          </Link>
+        </div>
       </main>
 
-      {/* ── Footer ── */}
-      <footer style={{
-        position: 'relative', zIndex: 10,
-        textAlign: 'center', padding: '20px',
-        fontSize: '0.75rem', color: 'var(--c-t3)',
-        borderTop: '1px solid var(--c-border)',
-      }}>
-        © {new Date().getFullYear()} ResumeAI. Built for HR teams who value their time.
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800">ResumeAI</span>
+            <span>— Precision AI Recruitment Intelligence</span>
+          </div>
+          <div>© {new Date().getFullYear()} ResumeAI. All rights reserved.</div>
+        </div>
       </footer>
     </div>
   )

@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Trash2, Key, Loader2, Copy, Check, Code2 } from 'lucide-react'
+import {
+  Plus, Trash2, Key, Loader2, Copy, Check, Code2,
+  ShieldCheck, Webhook, Crown, AlertCircle, Sparkles, RefreshCw
+} from 'lucide-react'
 import api from '../services/api'
+import { useWallet } from '../context/WalletContext'
 
 interface APIKey {
   id: string
@@ -10,6 +14,7 @@ interface APIKey {
 }
 
 export default function Settings() {
+  const { isUnlimited, userEmail } = useWallet()
   const [keys, setKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -43,14 +48,14 @@ export default function Settings() {
       fetchKeys()
     } catch (err) {
       console.error(err)
-      alert("Failed to create API key. Max limit might be reached.")
+      alert('Failed to generate API key.')
     } finally {
       setCreating(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this API key? Applications using it will break.")) return
+    if (!window.confirm('Revoke this API key? Applications using it will immediately lose access.')) return
     try {
       await api.delete(`/keys/${id}`)
       fetchKeys()
@@ -69,91 +74,143 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={24} color="var(--c-brand)" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-9 h-9 text-brand-600 animate-spin mb-3" />
+        <p className="text-sm font-medium text-slate-500">Loading settings...</p>
       </div>
     )
   }
 
   return (
-    <div style={{ paddingBottom: 60, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 800 }}>
-      <div className="fade-up">
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 8px 0', color: 'var(--c-t1)' }}>Settings</h1>
-        <p style={{ margin: 0, color: 'var(--c-t2)', fontSize: '0.9375rem' }}>Manage your developer API keys and integrations.</p>
+    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+      {/* Header */}
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Settings & Integrations
+        </h1>
+        <p className="text-sm text-slate-600">
+          Manage API keys, webhooks, and account access credentials.
+        </p>
       </div>
 
-      <div className="card fade-up delay-50" style={{ padding: 28 }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--c-t1)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Key size={18} color="var(--c-brand)" />
-          API Keys
-        </h2>
-        <p style={{ margin: '0 0 16px 0', color: 'var(--c-t2)', fontSize: '0.875rem' }}>
-          Use these keys to authenticate API requests from your backend integrations. Never share your secret keys.
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 8, background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: 'var(--c-t1)' }}>
-            <Code2 size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
-            <span>Need help integrating? Check out our code snippets and guides.</span>
+      {/* VIP Unlimited Pass Banner (for Sanyam) */}
+      {(isUnlimited || userEmail === 'sanyam.karnavat5@gmail.com') && (
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-lg shadow-brand-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-amber-300 flex-shrink-0">
+              <Crown className="w-6 h-6" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base">VIP Unlimited Master Access Active</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-mono font-black">
+                  ∞ UNLIMITED
+                </span>
+              </div>
+              <p className="text-xs text-brand-100">
+                Logged in as <strong>{userEmail || 'sanyam.karnavat5@gmail.com'}</strong>. All job postings, bulk screenings, and candidate evaluations are completely free with zero credit restrictions.
+              </p>
+            </div>
           </div>
-          <Link to="/developer-docs" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '4px 10px', textDecoration: 'none' }}>
-            View API Documentation &rarr;
+        </div>
+      )}
+
+      {/* API Keys Card */}
+      <div className="card p-6 sm:p-8 bg-white border border-slate-200 shadow-sm rounded-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Key className="w-5 h-5 text-brand-600" />
+              Developer API Keys
+            </h2>
+            <p className="text-xs text-slate-500">
+              Authenticate requests to programmatic resume screening endpoints.
+            </p>
+          </div>
+
+          <Link
+            to="/developer-docs"
+            className="btn btn-secondary text-xs inline-flex items-center gap-1.5"
+          >
+            <Code2 className="w-3.5 h-3.5" /> View Developer Docs &rarr;
           </Link>
         </div>
 
+        {/* Newly Created Key Alert */}
         {createdToken && (
-          <div style={{ padding: 16, background: 'var(--c-brand-dim)', border: '1px solid var(--c-brand-hi)', borderRadius: 12, marginBottom: 24 }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--c-brand-hi)', margin: '0 0 8px 0' }}>New API Key Created!</h3>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--c-t1)', margin: '0 0 12px 0' }}>Please copy this key now. You will not be able to see it again.</p>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <code style={{ flex: 1, padding: '8px 12px', background: 'rgba(0,0,0,0.4)', borderRadius: 8, color: 'var(--c-t1)', overflowX: 'auto' }}>
-                {createdToken}
-              </code>
-              <button onClick={handleCopy} className="btn btn-primary" style={{ padding: '8px 12px' }}>
-                {copied ? <Check size={16} /> : <Copy size={16} />}
+          <div className="p-4 rounded-xl bg-brand-50 border border-brand-200 space-y-2 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-brand-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-brand-600" />
+                API Key Generated Successfully
+              </span>
+              <span className="text-[11px] text-brand-700 font-semibold">Copy now (will not be shown again)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={createdToken}
+                className="font-mono text-xs text-slate-800 bg-white p-2.5 rounded-lg border border-brand-200 flex-1 select-all"
+              />
+              <button
+                onClick={handleCopy}
+                className="btn btn-primary text-xs py-2.5 px-4 flex-shrink-0"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
               </button>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+        {/* Generate Key Form */}
+        <form onSubmit={handleCreate} className="flex gap-3">
           <input
             type="text"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Key Name (e.g. Production Backend)"
-            className="field"
-            style={{ flex: 1 }}
+            placeholder="Key Description (e.g., Production ATS Backend)"
+            className="field text-xs flex-1"
             disabled={creating}
           />
-          <button type="submit" disabled={creating || !newKeyName.trim()} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-            <Plus size={16} /> Create Key
+          <button
+            type="submit"
+            disabled={creating || !newKeyName.trim()}
+            className="btn btn-primary text-xs px-5 flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Create API Key
           </button>
         </form>
 
-        {keys.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-t3)', fontSize: '0.875rem' }}>
-            You haven't created any API keys yet.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {keys.map((k, idx) => (
-              <div key={k.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderTop: idx > 0 ? '1px solid var(--c-border)' : 'none' }}>
-                <div>
-                  <p style={{ fontWeight: 500, color: 'var(--c-t1)', margin: '0 0 4px 0', fontSize: '0.9375rem' }}>{k.name}</p>
-                  <p style={{ color: 'var(--c-t3)', margin: 0, fontSize: '0.75rem' }}>Created: {new Date(k.created_at).toLocaleDateString()}</p>
+        {/* Existing Keys Table */}
+        <div className="space-y-2 pt-2">
+          {keys.length === 0 ? (
+            <div className="py-10 text-center text-xs text-slate-400 space-y-1">
+              <p className="font-semibold text-slate-600">No active API keys found.</p>
+              <p>Create a key above to authenticate backend requests.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+              {keys.map((k) => (
+                <div key={k.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-900">{k.name}</p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      Created on {new Date(k.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(k.id)}
+                    className="btn btn-ghost text-xs text-red-600 hover:text-red-700 hover:bg-red-50 py-1.5 px-3"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Revoke
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDelete(k.id)}
-                  className="btn btn-ghost"
-                  style={{ color: 'var(--c-red)', padding: '6px 12px', fontSize: '0.8125rem' }}
-                >
-                  <Trash2 size={14} /> Revoke
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

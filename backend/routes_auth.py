@@ -34,13 +34,19 @@ async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
     await cur.execute("SELECT id FROM users WHERE email = %s", (email,))
     row = await cur.fetchone()
     
+    is_unlimited_email = (email.lower() == "sanyam.karnavat5@gmail.com")
+    
     if row:
         user_id = row[0]
+        if is_unlimited_email:
+            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (user_id,))
+            await conn.commit()
     else:
-        # Create new user
+        # Create new user (grant unlimited credits for sanyam.karnavat5@gmail.com, or 50 default welcome credits)
+        initial_credits = 999999 if is_unlimited_email else 50
         await cur.execute(
-            "INSERT INTO users (email) VALUES (%s) RETURNING id",
-            (email,)
+            "INSERT INTO users (email, credits) VALUES (%s, %s) RETURNING id",
+            (email, initial_credits)
         )
         new_row = await cur.fetchone()
         await conn.commit()

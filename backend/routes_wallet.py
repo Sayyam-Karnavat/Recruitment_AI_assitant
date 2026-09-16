@@ -40,9 +40,17 @@ async def get_wallet_balance(
 ):
     """Retrieve user's current credit balance and purchase tiers."""
     conn, cur = db
-    await cur.execute("SELECT credits, email FROM users WHERE id = %s", (str(user["id"]),))
-    row = await cur.fetchone()
-    current_credits = row[0] if row and row[0] is not None else 0
+    user_email = (user.get("email") or "").lower()
+    is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
+
+    if is_unlimited:
+        current_credits = 999999
+        await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
+        await conn.commit()
+    else:
+        await cur.execute("SELECT credits, email FROM users WHERE id = %s", (str(user["id"]),))
+        row = await cur.fetchone()
+        current_credits = row[0] if row and row[0] is not None else 0
 
     packages_list = [
         {
@@ -58,6 +66,7 @@ async def get_wallet_balance(
     return {
         "credits": current_credits,
         "email": user["email"],
+        "is_unlimited": is_unlimited,
         "cost_per_credit_inr": 5,
         "packages": packages_list,
         "is_mock_mode": not bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET)

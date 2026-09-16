@@ -4,7 +4,9 @@ import { useDropzone } from 'react-dropzone'
 import api from '../services/api'
 import {
   Loader2, ChevronLeft, Download, CheckCircle, XCircle, Clock, Trash2,
-  Power, Search, X, Share2, CreditCard, Sparkles
+  Power, Search, X, Share2, CreditCard, Sparkles, UploadCloud, FileText,
+  Users, Award, TrendingUp, Check, ExternalLink, Link2, Copy, Filter,
+  ChevronDown, ChevronUp
 } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 
@@ -17,6 +19,7 @@ interface Job {
   created_at: string
   candidate_count: number
   custom_prompt?: string
+  min_passing_score?: number
   active_days_limit?: number
   max_applications?: number
 }
@@ -31,25 +34,25 @@ interface Candidate {
   created_at: string
 }
 
-function getScoreChip(score: number) {
-  if (score >= 75) return 'score-chip score-high'
-  if (score >= 50) return 'score-chip score-mid'
-  return 'score-chip score-low'
-}
-
-function getRecommendationClass(rec: string) {
+function getRecommendationBadge(rec: string | null) {
   switch (rec) {
-    case 'Strong Shortlist': return 'badge badge-strong'
-    case 'Shortlist': return 'badge badge-shortlist'
-    case 'Maybe': return 'badge badge-maybe'
-    default: return 'badge badge-reject'
+    case 'Strong Shortlist':
+      return <span className="badge badge-strong">Strong Match</span>
+    case 'Shortlist':
+      return <span className="badge badge-shortlist">Shortlisted</span>
+    case 'Maybe':
+      return <span className="badge badge-maybe">Potential</span>
+    case 'Reject':
+      return <span className="badge badge-reject">Not Selected</span>
+    default:
+      return <span className="badge badge-silver">Evaluating</span>
   }
 }
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { refreshBalance, openWalletModal } = useWallet()
+  const { refreshBalance, openWalletModal, isUnlimited } = useWallet()
 
   const [job, setJob] = useState<Job | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -60,20 +63,27 @@ export default function JobDetail() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [urlInput, setUrlInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [copiedLink, setCopiedLink] = useState(false)
+  const [activeTab, setActiveTab] = useState<'candidates' | 'upload'>('candidates')
+  const [isDescExpanded, setIsDescExpanded] = useState(false)
 
   const fetchJob = async () => {
     try {
       const res = await api.get(`/jobs/${id}`)
       setJob(res.data)
-    } catch { /* */ }
+    } catch (err) {
+      console.error('Failed to fetch job:', err)
+    }
   }
 
   const fetchCandidates = async () => {
     try {
       const res = await api.get(`/jobs/${id}/candidates`)
       setCandidates(res.data)
-    } catch { /* */ }
+    } catch (err) {
+      console.error('Failed to fetch candidates:', err)
+    }
   }
 
   const downloadReport = async (format: 'csv' | 'pdf') => {
@@ -84,7 +94,7 @@ export default function JobDetail() {
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `shortlist_report.${format}`)
+      link.setAttribute('download', `${job?.title.replace(/\s+/g, '_')}_evaluation_report.${format}`)
       document.body.appendChild(link)
       link.click()
       link.parentNode?.removeChild(link)
@@ -104,28 +114,33 @@ export default function JobDetail() {
     }
   }
 
+  const [deleting, setDeleting] = useState(false)
+
   const deleteJob = async () => {
-    if (!window.confirm('Are you sure you want to delete this job and all its candidates? This action cannot be undone.')) return
+    if (!window.confirm('Are you sure you want to permanently delete this position? All candidates, resumes, and evaluations will be deleted.')) return
     try {
+      setDeleting(true)
       await api.delete(`/jobs/${id}`)
-      navigate('/dashboard')
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       console.error('Failed to delete job', err)
+      navigate('/dashboard', { replace: true })
     }
   }
 
+  const publicApplyUrl = `${window.location.origin}/careers/${id}`
+
   const copyPublicApplyLink = () => {
-    const url = `${window.location.origin}/careers/${id}`
-    navigator.clipboard.writeText(url)
+    navigator.clipboard.writeText(publicApplyUrl)
     setCopiedLink(true)
-    setTimeout(() => setCopiedLink(false), 2000)
+    setTimeout(() => setCopiedLink(false), 2500)
   }
 
   useEffect(() => {
     Promise.all([fetchJob(), fetchCandidates()]).finally(() => setLoading(false))
   }, [id])
 
-  // Real-time WebSocket connection for live processing updates
+  // Real-time WebSocket connection
   useEffect(() => {
     if (!id) return
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -135,11 +150,6 @@ export default function JobDetail() {
 
     try {
       ws = new WebSocket(wsUrl)
-
-      ws.onopen = () => {
-        console.log('Connected to job WebSocket for real-time updates:', id)
-      }
-
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
@@ -159,15 +169,11 @@ export default function JobDetail() {
           } else if (data.type === 'batch_failed') {
             setBatchId(null)
             setUploading(false)
-            setUploadError(data.error || 'Batch processing failed.')
+            setUploadError(data.error || 'Batch processing encountered an issue.')
           }
         } catch (err) {
           console.error('WebSocket parse error:', err)
         }
-      }
-
-      ws.onerror = (err) => {
-        console.warn('WebSocket error, fallback polling available if needed:', err)
       }
     } catch (err) {
       console.warn('WebSocket init error:', err)
@@ -180,7 +186,7 @@ export default function JobDetail() {
     }
   }, [id, refreshBalance])
 
-  // Secondary polling fallback only if actively uploading
+  // Polling fallback during active uploads
   useEffect(() => {
     if (!batchId) return
     const interval = setInterval(async () => {
@@ -206,10 +212,10 @@ export default function JobDetail() {
     setUploadError(null)
     if (acceptedFiles.length === 0) return
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024
+    const MAX_FILE_SIZE = 10 * 1024 * 1024
     for (const f of acceptedFiles) {
       if (f.size > MAX_FILE_SIZE) {
-        setUploadError(`"${f.name}" exceeds the maximum allowed size of 5 MB.`)
+        setUploadError(`"${f.name}" exceeds the maximum size limit of 10 MB.`)
         return
       }
     }
@@ -226,7 +232,7 @@ export default function JobDetail() {
       setBatchProgress({ processed: 0, total: res.data.total_files })
       refreshBalance()
     } catch (err: any) {
-      const detail = err.response?.data?.detail || 'Upload failed'
+      const detail = err.response?.data?.detail || 'Resume upload failed'
       setUploadError(detail)
       setUploading(false)
     }
@@ -248,7 +254,7 @@ export default function JobDetail() {
       setUrlInput('')
       refreshBalance()
     } catch (err: any) {
-      const detail = err.response?.data?.detail || 'Upload failed'
+      const detail = err.response?.data?.detail || 'Link ingestion failed'
       setUploadError(detail)
       setUploading(false)
     }
@@ -264,172 +270,260 @@ export default function JobDetail() {
     disabled: uploading,
   })
 
-  // Filter candidates by candidate name or filename search
+  // Filter candidates by search query and recommendation category
   const filteredCandidates = useMemo(() => {
-    if (!searchQuery.trim()) return candidates
-    const q = searchQuery.toLowerCase().trim()
-    return candidates.filter(c => {
-      const nameMatch = c.name?.toLowerCase().includes(q)
-      const fileMatch = c.filename?.toLowerCase().includes(q)
-      return nameMatch || fileMatch
-    })
-  }, [candidates, searchQuery])
+    let result = candidates
+    if (selectedFilter !== 'all') {
+      result = result.filter(c => c.recommendation === selectedFilter)
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter(c => {
+        const nameMatch = c.name?.toLowerCase().includes(q)
+        const fileMatch = c.filename?.toLowerCase().includes(q)
+        return nameMatch || fileMatch
+      })
+    }
+    return result
+  }, [candidates, searchQuery, selectedFilter])
+
+  // Summary Metrics
+  const metrics = useMemo(() => {
+    const total = candidates.length
+    const evaluated = candidates.filter(c => c.status === 'evaluated')
+    const strongMatches = candidates.filter(c => c.recommendation === 'Strong Shortlist').length
+    const shortlists = candidates.filter(c => c.recommendation === 'Shortlist').length
+    const avgScore = evaluated.length > 0
+      ? Math.round(evaluated.reduce((acc, c) => acc + (c.overall_score || 0), 0) / evaluated.length)
+      : 0
+
+    return { total, evaluated: evaluated.length, strongMatches, shortlists, avgScore }
+  }, [candidates])
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={24} color="var(--c-brand)" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-9 h-9 text-brand-600 animate-spin mb-3" />
+        <p className="text-sm font-medium text-slate-500">Loading position details...</p>
       </div>
     )
   }
 
-  let limitReachedReason = ''
-  if (job?.max_applications && job.candidate_count >= job.max_applications) {
-    limitReachedReason = `Max applications (${job.max_applications}) reached.`
-  } else if (job?.active_days_limit) {
-    const createdDate = new Date(job.created_at)
-    const expiryDate = new Date(createdDate.getTime() + job.active_days_limit * 24 * 60 * 60 * 1000)
-    if (new Date() > expiryDate) {
-      limitReachedReason = `Active days limit (${job.active_days_limit} days) reached.`
-    }
-  }
-
-  const isClosed = job?.status === 'closed' || !!limitReachedReason
+  const isClosed = job?.status === 'closed'
   const progressPct = batchProgress.total ? (batchProgress.processed / batchProgress.total) * 100 : 0
 
   return (
-    <div style={{ paddingBottom: 60, display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Top action row */}
-      <div className="fade-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <Link to="/dashboard" className="btn btn-ghost" style={{ padding: '0.4rem 0.75rem', fontSize: '0.8125rem' }}>
-          <ChevronLeft size={16} />
-          Back to Dashboard
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Top Breadcrumb & Action Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-brand-600 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Positions
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Candidate Apply Link Button */}
           <button
             onClick={copyPublicApplyLink}
-            className="btn btn-secondary"
-            style={{ fontSize: '0.8125rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}
-            title="Copy candidate application link"
+            className="btn btn-primary"
+            title="Copy public candidate application link"
           >
-            <Share2 size={14} />
-            {copiedLink ? 'Link Copied!' : 'Candidate Apply Link'}
+            {copiedLink ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-300" />
+                <span>Link Copied to Clipboard!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Copy Application Link</span>
+              </>
+            )}
           </button>
 
+          {/* Export Actions */}
           {candidates.length > 0 && (
-            <>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => downloadReport('csv')}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8125rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}
+                className="btn btn-secondary text-xs"
+                title="Download CSV report"
               >
-                <Download size={14} /> CSV
+                <Download className="w-3.5 h-3.5" /> CSV
               </button>
               <button
                 onClick={() => downloadReport('pdf')}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8125rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}
+                className="btn btn-secondary text-xs"
+                title="Download PDF report"
               >
-                <Download size={14} /> PDF
+                <Download className="w-3.5 h-3.5" /> PDF
               </button>
-            </>
+            </div>
           )}
 
+          {/* Toggle Active / Close */}
           <button
             onClick={toggleJobStatus}
-            className={`btn ${job?.status === 'active' ? 'btn-secondary' : 'btn-primary'}`}
-            style={{ fontSize: '0.8125rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}
+            className={`btn text-xs ${job?.status === 'active' ? 'btn-secondary' : 'btn-primary'}`}
           >
-            <Power size={14} />
-            {job?.status === 'active' ? 'Close Job' : 'Reactivate Job'}
+            <Power className="w-3.5 h-3.5" />
+            {job?.status === 'active' ? 'Close Position' : 'Reactivate'}
           </button>
 
+          {/* Delete Button */}
           <button
             onClick={deleteJob}
-            className="btn btn-danger"
-            style={{ fontSize: '0.8125rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}
+            disabled={deleting}
+            className="btn btn-danger text-xs"
+            title="Delete this position permanently"
           >
-            <Trash2 size={14} /> Delete
+            {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            <span>{deleting ? 'Deleting...' : 'Delete'}</span>
           </button>
         </div>
       </div>
 
-      {/* Job details card */}
-      <div className="card fade-up delay-50">
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span className={`badge ${job?.status === 'active' ? 'badge-green' : 'badge-reject'}`}>
+      {/* Position Header Banner */}
+      <div className="card p-6 sm:p-8 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-brand-50 to-transparent rounded-full pointer-events-none -mr-20 -mt-20 opacity-60" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="space-y-3 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className={`badge ${job?.status === 'active' ? 'badge-blue' : 'badge-reject'}`}>
                 {job?.status.toUpperCase()}
               </span>
-              {limitReachedReason && (
-                <span className="badge badge-maybe" style={{ background: 'var(--c-amber-dim)', color: 'var(--c-amber)' }}>
-                  {limitReachedReason}
+              <span className="badge badge-silver">
+                Target: {job?.target_shortlist_count} Shortlists
+              </span>
+              <span className="badge badge-silver">
+                Passing Score: {job?.min_passing_score ?? 50}/100
+              </span>
+              {job?.active_days_limit && (
+                <span className="badge badge-silver">
+                  Window: {job.active_days_limit} Days
                 </span>
               )}
+              {job?.max_applications && (
+                <span className="badge badge-silver">
+                  Cap: {job.max_applications} Apps
+                </span>
+              )}
+              <span className="text-xs text-slate-400">
+                Created {job?.created_at ? new Date(job.created_at).toLocaleDateString() : ''}
+              </span>
             </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--c-t1)', margin: 0 }}>
+
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
               {job?.title}
             </h1>
+
+            <div className="space-y-1.5">
+              <p className={`text-sm text-slate-600 leading-relaxed whitespace-pre-wrap transition-all ${
+                !isDescExpanded ? 'line-clamp-3' : ''
+              }`}>
+                {job?.description}
+              </p>
+              {job?.description && job.description.length > 160 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDescExpanded(!isDescExpanded)}
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1 transition-colors"
+                >
+                  <span>{isDescExpanded ? 'See less' : 'See more...'}</span>
+                  {isDescExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            </div>
+
+            {job?.custom_prompt && (
+              <div className="inline-flex items-center gap-2 p-2.5 px-3 rounded-lg bg-brand-50/60 border border-brand-100 text-xs text-brand-900 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                <span><strong>Special AI Evaluation Criteria:</strong> {job.custom_prompt}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Public Share Link Card */}
+          <div className="w-full md:w-80 bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-brand-600" /> Share Application Link
+              </span>
+              <a
+                href={publicApplyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1"
+              >
+                Preview <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
+              <input
+                type="text"
+                readOnly
+                value={publicApplyUrl}
+                className="text-xs text-slate-600 bg-transparent flex-1 border-none focus:outline-none select-all font-mono"
+              />
+              <button
+                onClick={copyPublicApplyLink}
+                className="p-1.5 rounded text-slate-500 hover:text-brand-600 hover:bg-slate-100 transition-colors"
+                title="Copy Link"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-tight">
+              Share this link across job boards, social media, or with candidates. Applicants can submit directly without login.
+            </p>
           </div>
         </div>
 
-        <p style={{
-          fontSize: '0.875rem', color: 'var(--c-t2)', lineHeight: 1.6,
-          marginTop: 12, marginBottom: 16, whiteSpace: 'pre-wrap',
-        }}>
-          {job?.description}
-        </p>
-
-        {/* Custom criteria & limits info */}
-        {(job?.custom_prompt || job?.active_days_limit || job?.max_applications) && (
-          <div style={{
-            background: 'var(--c-elevated)', padding: '12px 16px', borderRadius: 8,
-            border: '1px solid var(--c-border)', fontSize: '0.8125rem', display: 'flex', flexDirection: 'column', gap: 6,
-          }}>
-            {job.custom_prompt && (
-              <div>
-                <strong style={{ color: 'var(--c-t2)' }}>Special Evaluation Criteria: </strong>
-                <span style={{ color: 'var(--c-t1)' }}>{job.custom_prompt}</span>
-              </div>
-            )}
-            {job.active_days_limit && (
-              <div>
-                <strong style={{ color: 'var(--c-t2)' }}>Active Days Limit: </strong>
-                <span style={{ color: 'var(--c-t1)' }}>{job.active_days_limit} days</span>
-              </div>
-            )}
-            {job.max_applications && (
-              <div>
-                <strong style={{ color: 'var(--c-t2)' }}>Max Applications: </strong>
-                <span style={{ color: 'var(--c-t1)' }}>{job.max_applications} candidates</span>
-              </div>
-            )}
+        {/* Quick Metric Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-100">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Candidates</p>
+            <p className="text-2xl font-extrabold text-slate-900">{metrics.total}</p>
           </div>
-        )}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Strong Matches</p>
+            <p className="text-2xl font-extrabold text-emerald-600">{metrics.strongMatches}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-brand-700 uppercase tracking-wider">Shortlisted</p>
+            <p className="text-2xl font-extrabold text-brand-600">{metrics.shortlists}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Average Match</p>
+            <p className="text-2xl font-extrabold text-slate-900">{metrics.avgScore > 0 ? `${metrics.avgScore}%` : '—'}</p>
+          </div>
+        </div>
       </div>
 
-      {/* Upload error banner (with direct Wallet Top-Up action if 402 Insufficient Credits) */}
+      {/* Upload Error Banner */}
       {uploadError && (
-        <div role="alert" className="alert-error fade-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <XCircle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
-            <span style={{ fontSize: '0.875rem' }}>{uploadError}</span>
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-red-800">{uploadError}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {uploadError.toLowerCase().includes('credit') && (
+          <div className="flex items-center gap-2">
+            {!isUnlimited && uploadError.toLowerCase().includes('credit') && (
               <button
                 onClick={openWalletModal}
-                className="btn btn-primary"
-                style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                className="btn btn-primary text-xs py-1.5 px-3"
               >
-                <CreditCard size={13} /> Top Up Wallet
+                <CreditCard className="w-3.5 h-3.5" /> Top Up Wallet
               </button>
             )}
             <button
               onClick={() => setUploadError(null)}
-              style={{ background: 'none', border: 'none', color: 'inherit', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}
+              className="text-xs font-semibold text-red-700 hover:text-red-900"
             >
               Dismiss
             </button>
@@ -437,233 +531,255 @@ export default function JobDetail() {
         </div>
       )}
 
-      {/* Upload zone */}
-      <div
-        {...getRootProps()}
-        className="fade-up delay-100"
-        style={{
-          border: `2px dashed ${isDragActive && !isClosed ? 'var(--c-brand)' : 'var(--c-border-hi)'}`,
-          background: isDragActive && !isClosed ? 'var(--c-brand-dim)' : 'rgba(13,17,23,0.4)',
-          borderRadius: 16,
-          padding: 40,
-          textAlign: 'center',
-          cursor: uploading || isClosed ? 'not-allowed' : 'pointer',
-          opacity: uploading || isClosed ? 0.6 : 1,
-          transition: 'all 200ms var(--ease-spring)',
-          pointerEvents: isClosed ? 'none' : 'auto',
-        }}
-      >
-        <input {...getInputProps({ disabled: isClosed || uploading })} aria-label="Resume file input" />
-        {uploading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <Loader2 size={32} className="animate-spin" color="var(--c-brand)" />
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--c-t1)', margin: 0 }}>
-              AI Streaming & Evaluating: {batchProgress.processed}/{batchProgress.total} resumes processed…
-            </p>
-            <div className="score-bar-track" style={{ width: 260 }}>
-              <div className="score-bar-fill" style={{ width: `${progressPct}%`, background: 'var(--c-brand)' }} />
-            </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--c-t3)' }}>
-              Real-time updates streaming over WebSocket • 0 disk retention
-            </span>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: 'var(--c-brand-dim)', color: 'var(--c-brand-hi)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="24" height="24" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M10 13V5M6 9l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M3 17h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <p style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--c-t1)', margin: 0 }}>
-              {isClosed ? 'Uploads disabled (Job Closed)' : (isDragActive ? 'Release to upload' : 'Drop resumes here or click to browse')}
-            </p>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--c-t3)', margin: 0 }}>
-              PDF, DOCX, or ZIP &middot; 1 Credit per resume &middot; Zero disk storage
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* URL Link Upload */}
-      {!isClosed && (
-        <form onSubmit={handleUrlSubmit} className="fade-up delay-100" style={{ display: 'flex', gap: 12 }}>
-          <input
-            type="text"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            placeholder="Or paste Google Drive, OneDrive, or direct links (comma-separated)"
-            className="field"
-            style={{ flex: 1 }}
-            disabled={uploading}
-          />
-          <button type="submit" disabled={uploading || !urlInput.trim()} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-            Fetch Links
+      {/* Tabs & Candidate Management Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('candidates')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+              activeTab === 'candidates'
+                ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            Candidates & Rankings ({candidates.length})
           </button>
-        </form>
-      )}
-
-      {/* Candidates table with Candidate Name Search Filter */}
-      <div className="card fade-up delay-150" style={{ overflow: 'hidden' }}>
-        {/* Table header with Search filter */}
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--c-border)',
-            background: 'rgba(255,255,255,0.02)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--c-t1)', margin: 0 }}>
-              {candidates.length} Candidate{candidates.length !== 1 ? 's' : ''}
-            </h2>
-            {searchQuery && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--c-t3)' }}>
-                Showing {filteredCandidates.length} matching "{searchQuery}"
-              </span>
-            )}
-          </div>
-
-          {/* Candidate Search Input Filter */}
-          <div style={{ position: 'relative', minWidth: 260, flex: '0 1 320px' }}>
-            <Search
-              size={15}
-              style={{
-                position: 'absolute',
-                left: 10,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--c-t3)',
-                pointerEvents: 'none',
-              }}
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search candidate name or file..."
-              className="field"
-              style={{
-                paddingLeft: 32,
-                paddingRight: searchQuery ? 30 : 12,
-                paddingTop: 6,
-                paddingBottom: 6,
-                fontSize: '0.8125rem',
-                height: 34,
-                width: '100%',
-              }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="btn-icon"
-                style={{
-                  position: 'absolute',
-                  right: 4,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  padding: 4,
-                }}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => setActiveTab('upload')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+              activeTab === 'upload'
+                ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            Bulk Upload & Drive Links
+          </button>
         </div>
 
-        {/* Candidate List */}
-        {filteredCandidates.length === 0 ? (
-          <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--c-t3)' }}>
-            {searchQuery ? (
-              <p style={{ margin: 0 }}>No candidates found matching "<strong>{searchQuery}</strong>".</p>
-            ) : (
-              <p style={{ margin: 0 }}>No candidates screened yet. Upload resumes to evaluate.</p>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {filteredCandidates.map((c, idx) => (
-              <Link
-                key={c.id}
-                to={`/jobs/${id}/candidates/${c.id}`}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '16px 20px',
-                  borderBottom: idx < filteredCandidates.length - 1 ? '1px solid var(--c-border)' : 'none',
-                  textDecoration: 'none',
-                  background: 'transparent',
-                  transition: 'background 120ms var(--ease-spring)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-elevated)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                {/* Left */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--c-t3)', width: 24 }}>
-                    #{idx + 1}
-                  </span>
-                  <StatusIcon status={c.status} />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{
-                      fontSize: '0.9375rem', fontWeight: 600, color: 'var(--c-t1)', margin: '0 0 2px 0',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {c.name || c.filename}
-                    </p>
-                    {c.name && (
-                      <p style={{
-                        fontSize: '0.75rem', color: 'var(--c-t3)', margin: 0,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        {c.filename}
-                      </p>
-                    )}
-                  </div>
-                </div>
+        {activeTab === 'candidates' && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+              {(['all', 'Strong Shortlist', 'Shortlist', 'Maybe', 'Reject'] as const).map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setSelectedFilter(filter)}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    selectedFilter === filter
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {filter === 'all' ? 'All' : filter === 'Strong Shortlist' ? 'Strong' : filter}
+                </button>
+              ))}
+            </div>
 
-                {/* Right */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-                  {c.recommendation && (
-                    <span className={getRecommendationClass(c.recommendation)}>
-                      {c.recommendation}
-                    </span>
-                  )}
-                  {c.overall_score !== null && (
-                    <span className={getScoreChip(c.overall_score)}>
-                      {c.overall_score}
-                    </span>
-                  )}
-                  {c.status === 'failed' && (
-                    <span className="badge badge-reject" style={{ fontSize: '0.7rem' }}>
-                      Failed
-                    </span>
-                  )}
-                </div>
-              </Link>
-            ))}
+            {/* Search Input */}
+            <div className="relative w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search candidate name..."
+                className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Upload View Tab */}
+      {activeTab === 'upload' && (
+        <div className="space-y-6">
+          {/* Dropzone */}
+          <div
+            {...getRootProps()}
+            className={`p-10 border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all ${
+              isDragActive
+                ? 'border-brand-500 bg-brand-50/50'
+                : isClosed
+                ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
+                : 'border-slate-300 bg-white hover:border-brand-400 hover:bg-slate-50/50 shadow-sm'
+            }`}
+          >
+            <input {...getInputProps({ disabled: isClosed || uploading })} />
+            {uploading ? (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <Loader2 className="w-10 h-10 text-brand-600 animate-spin" />
+                <div className="space-y-1">
+                  <p className="text-base font-bold text-slate-900">
+                    AI Screening in Progress: {batchProgress.processed} / {batchProgress.total} resumes processed
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Extracting structured credentials, ranking relevance, and evaluating criteria...
+                  </p>
+                </div>
+                <div className="w-72 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                  <div
+                    className="h-full bg-brand-600 transition-all duration-300 rounded-full"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+                  <UploadCloud className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-base font-bold text-slate-900">
+                    {isClosed ? 'Job is closed (Uploads disabled)' : 'Drop resume files here or click to browse'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Supports <strong>PDF, DOCX, or ZIP batches</strong> (up to 10MB per file) • Zero disk storage
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* URL / Cloud Drive Ingestion */}
+          {!isClosed && (
+            <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-brand-600" />
+                Ingest from Cloud Links (Google Drive, OneDrive, Dropbox, or Direct URLs)
+              </h3>
+              <form onSubmit={handleUrlSubmit} className="flex gap-3">
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="Paste public PDF URLs or cloud storage links (comma separated)"
+                  className="field flex-1 text-xs"
+                  disabled={uploading}
+                />
+                <button
+                  type="submit"
+                  disabled={uploading || !urlInput.trim()}
+                  className="btn btn-primary text-xs px-5"
+                >
+                  Fetch & Screen Links
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Candidate List Table */}
+      {activeTab === 'candidates' && (
+        <div className="card bg-white border border-slate-200 shadow-sm overflow-hidden rounded-xl">
+          {filteredCandidates.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <Users className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-700">
+                {searchQuery || selectedFilter !== 'all' ? 'No candidates matching your filter.' : 'No candidates screened yet.'}
+              </p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                {searchQuery || selectedFilter !== 'all'
+                  ? 'Try clearing the search query or selecting a different status filter.'
+                  : 'Share your application link or upload resume files to begin AI screening.'}
+              </p>
+              {!searchQuery && selectedFilter === 'all' && (
+                <button
+                  onClick={() => setActiveTab('upload')}
+                  className="btn btn-primary text-xs mt-2"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" /> Upload Resumes Now
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filteredCandidates.map((c, idx) => (
+                <Link
+                  key={c.id}
+                  to={`/jobs/${id}/candidates/${c.id}`}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-5 hover:bg-slate-50/80 transition-colors group text-decoration-none"
+                >
+                  {/* Left Column: Rank, Avatar, Name & File */}
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold font-mono flex items-center justify-center flex-shrink-0 group-hover:bg-brand-50 group-hover:text-brand-700 transition-colors">
+                      {idx + 1}
+                    </div>
+
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors truncate">
+                          {c.name || c.filename}
+                        </p>
+                        {c.status === 'evaluated' ? (
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                        ) : c.status === 'failed' ? (
+                          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 truncate flex items-center gap-1.5">
+                        <FileText className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                        <span className="truncate">{c.filename}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="flex-shrink-0">{new Date(c.created_at).toLocaleDateString()}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Score, Recommendation Badge & Chevron */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
+                    <div className="flex items-center gap-2">
+                      {getRecommendationBadge(c.recommendation)}
+
+                      {c.overall_score !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-14 h-2 bg-slate-100 rounded-full overflow-hidden hidden md:block">
+                            <div
+                              className={`h-full rounded-full ${
+                                c.overall_score >= 75
+                                  ? 'bg-emerald-500'
+                                  : c.overall_score >= 50
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${c.overall_score}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${
+                            c.overall_score >= 75
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : c.overall_score >= 50
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-red-50 text-red-700 border border-red-200'
+                          }`}>
+                            {c.overall_score}/100
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                      <span>View</span> &rarr;
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'evaluated') {
-    return <CheckCircle size={18} style={{ color: 'var(--c-green)', flexShrink: 0 }} />
-  }
-  if (status === 'failed') {
-    return <XCircle size={18} style={{ color: 'var(--c-red)', flexShrink: 0 }} />
-  }
-  return <Clock size={18} style={{ color: 'var(--c-amber)', flexShrink: 0 }} />
 }

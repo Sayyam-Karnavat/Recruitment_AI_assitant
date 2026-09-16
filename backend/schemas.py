@@ -52,10 +52,11 @@ class APIKeyResponse(BaseModel):
 class JobCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=10)
-    target_shortlist_count: int = Field(default=10, ge=1, le=100)
+    target_shortlist_count: int = Field(default=10, ge=1, le=500)
     custom_prompt: Optional[str] = Field(None, description="Custom criteria prompt for AI")
     active_days_limit: Optional[int] = Field(None, description="Days until job auto-closes", ge=1)
     max_applications: Optional[int] = Field(None, description="Max resumes before auto-closing", ge=1)
+    min_passing_score: Optional[int] = Field(default=50, description="Minimum score required to pass auto-rejection threshold", ge=1, le=100)
 
 
 class JobUpdate(BaseModel):
@@ -66,6 +67,7 @@ class JobUpdate(BaseModel):
     custom_prompt: Optional[str] = None
     active_days_limit: Optional[int] = None
     max_applications: Optional[int] = None
+    min_passing_score: Optional[int] = None
 
 
 class JobResponse(BaseModel):
@@ -79,6 +81,7 @@ class JobResponse(BaseModel):
     custom_prompt: Optional[str] = None
     active_days_limit: Optional[int] = None
     max_applications: Optional[int] = None
+    min_passing_score: Optional[int] = 50
 
     class Config:
         from_attributes = True

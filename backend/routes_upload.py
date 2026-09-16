@@ -100,15 +100,19 @@ async def upload_resumes(
 
     # 3. Check Wallet Balance & Guarded Credit System
     num_resumes = len(items_to_process)
-    await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
-    user_row = await cur.fetchone()
-    current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    user_email = (user.get("email") or "").lower()
+    is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
 
-    if current_credits < num_resumes:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
-        )
+    if not is_unlimited:
+        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
+        user_row = await cur.fetchone()
+        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+
+        if current_credits < num_resumes:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+            )
 
     # 4. Insert candidate records with in-memory text (zero disk write)
     candidate_ids = []
@@ -130,22 +134,26 @@ async def upload_resumes(
     batch_row = await cur.fetchone()
     batch_id = str(batch_row[0])
 
-    # 6. Deduct credits upfront and log transaction
-    await cur.execute(
-        "UPDATE users SET credits = credits - %s WHERE id = %s",
-        (num_resumes, str(user["id"]))
-    )
-    await cur.execute(
-        """INSERT INTO transactions
-           (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
-           VALUES (%s, %s, 0, 'deduction', 'success', %s, %s)""",
-        (
-            str(user["id"]),
-            -num_resumes,
-            batch_id,
-            f"Resume Processing ({num_resumes} files) for '{job_title}'"
+    # 6. Deduct credits upfront and log transaction (only for regular users)
+    if not is_unlimited:
+        await cur.execute(
+            "UPDATE users SET credits = credits - %s WHERE id = %s",
+            (num_resumes, str(user["id"]))
         )
-    )
+        await cur.execute(
+            """INSERT INTO transactions
+               (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+               VALUES (%s, %s, 0, 'deduction', 'success', %s, %s)""",
+            (
+                str(user["id"]),
+                -num_resumes,
+                batch_id,
+                f"Resume Processing ({num_resumes} files) for '{job_title}'"
+            )
+        )
+    else:
+        # Keep unlimited credits topped up
+        await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
 
     await conn.commit()
 
@@ -231,15 +239,19 @@ async def upload_links(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid new resume files found from the provided links")
 
     num_resumes = len(items_to_process)
-    await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
-    user_row = await cur.fetchone()
-    current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    user_email = (user.get("email") or "").lower()
+    is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
 
-    if current_credits < num_resumes:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
-        )
+    if not is_unlimited:
+        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
+        user_row = await cur.fetchone()
+        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+
+        if current_credits < num_resumes:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+            )
 
     candidate_ids = []
     for filename, f_hash, text in items_to_process:
@@ -259,21 +271,24 @@ async def upload_links(
     batch_row = await cur.fetchone()
     batch_id = str(batch_row[0])
 
-    await cur.execute(
-        "UPDATE users SET credits = credits - %s WHERE id = %s",
-        (num_resumes, str(user["id"]))
-    )
-    await cur.execute(
-        """INSERT INTO transactions
-           (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
-           VALUES (%s, %s, 0, 'deduction', 'success', %s, %s)""",
-        (
-            str(user["id"]),
-            -num_resumes,
-            batch_id,
-            f"Resume Processing ({num_resumes} links) for '{job_title}'"
+    if not is_unlimited:
+        await cur.execute(
+            "UPDATE users SET credits = credits - %s WHERE id = %s",
+            (num_resumes, str(user["id"]))
         )
-    )
+        await cur.execute(
+            """INSERT INTO transactions
+               (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+               VALUES (%s, %s, 0, 'deduction', 'success', %s, %s)""",
+            (
+                str(user["id"]),
+                -num_resumes,
+                batch_id,
+                f"Resume Processing ({num_resumes} links) for '{job_title}'"
+            )
+        )
+    else:
+        await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
 
     await conn.commit()
 

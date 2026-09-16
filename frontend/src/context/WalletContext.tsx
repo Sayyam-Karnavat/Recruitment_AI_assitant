@@ -12,6 +12,8 @@ export interface WalletPackage {
 
 interface WalletContextType {
   credits: number
+  isUnlimited: boolean
+  userEmail: string
   loading: boolean
   packages: WalletPackage[]
   isMockMode: boolean
@@ -26,6 +28,8 @@ const WalletContext = createContext<WalletContextType | null>(null)
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { token } = useAuth()
   const [credits, setCredits] = useState<number>(0)
+  const [isUnlimited, setIsUnlimited] = useState<boolean>(false)
+  const [userEmail, setUserEmail] = useState<string>('')
   const [packages, setPackages] = useState<WalletPackage[]>([])
   const [isMockMode, setIsMockMode] = useState<boolean>(true)
   const [loading, setLoading] = useState<boolean>(false)
@@ -36,7 +40,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       const res = await api.get('/wallet/balance')
-      setCredits(res.data.credits ?? 0)
+      const email = res.data.email || ''
+      const unlimited = Boolean(res.data.is_unlimited || email.toLowerCase() === 'sanyam.karnavat5@gmail.com')
+      setUserEmail(email)
+      setIsUnlimited(unlimited)
+      setCredits(unlimited ? 999999 : (res.data.credits ?? 0))
       if (res.data.packages) setPackages(res.data.packages)
       if (res.data.is_mock_mode !== undefined) setIsMockMode(res.data.is_mock_mode)
     } catch (err) {
@@ -51,6 +59,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       refreshBalance()
     } else {
       setCredits(0)
+      setIsUnlimited(false)
+      setUserEmail('')
     }
   }, [token, refreshBalance])
 
@@ -58,6 +68,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     <WalletContext.Provider
       value={{
         credits,
+        isUnlimited,
+        userEmail,
         loading,
         packages,
         isMockMode,

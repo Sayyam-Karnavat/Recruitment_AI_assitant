@@ -1,7 +1,8 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../hooks/useAuth'
+import { Sparkles, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react'
 
 export default function Login() {
   const { loginWithGoogle } = useAuth()
@@ -21,137 +22,146 @@ export default function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'stretch',
-      background: 'var(--c-base)', position: 'relative',
-    }}>
-      {/* Left panel — decorative */}
-      <div
-        aria-hidden="true"
-        style={{
-          flex: 1, display: 'none',
-          background: 'var(--c-surface)',
-          borderRight: '1px solid var(--c-border)',
-          position: 'relative', overflow: 'hidden',
-          flexDirection: 'column', alignItems: 'flex-start',
-          justifyContent: 'flex-end', padding: 48,
-        }}
-        className="lg:flex"
-      >
-        {/* Grid lines */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `linear-gradient(rgba(91,95,237,0.04) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(91,95,237,0.04) 1px, transparent 1px)`,
-          backgroundSize: '48px 48px',
-        }} />
-        {/* Gradient orb */}
-        <div style={{
-          position: 'absolute', top: '20%', left: '50%', transform: 'translate(-50%,-50%)',
-          width: '60%', paddingTop: '60%',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(91,95,237,0.18) 0%, transparent 65%)',
-          filter: 'blur(50px)',
-        }} />
+    <div className="min-h-screen flex items-stretch bg-slate-50 text-slate-900 font-sans">
+      {/* Left panel — Product Value & Executive Preview */}
+      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 text-white p-12 flex-col justify-between relative overflow-hidden">
+        {/* Background ambient glow */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Score card preview */}
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -55%)',
-          background: 'var(--c-elevated)',
-          border: '1px solid var(--c-border-hi)',
-          borderRadius: 16, padding: '24px 28px',
-          width: '70%', maxWidth: 280,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-        }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--c-t3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>
-            Top Match
+        {/* Brand */}
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30">
+            <Sparkles size={18} />
           </div>
-          <div style={{ fontWeight: 700, color: 'var(--c-t1)', fontSize: '0.9375rem', marginBottom: 4 }}>Sanyam K.</div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--c-t2)', marginBottom: 18 }}>Senior AI Engineer</div>
-          {[['Experience', 9], ['Skills', 8], ['Projects', 9], ['Education', 8]].map(([cat, score]) => (
-            <div key={String(cat)} style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: 5 }}>
-                <span style={{ color: 'var(--c-t2)' }}>{cat}</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", color: 'var(--c-copper)', fontWeight: 600 }}>{score}/10</span>
-              </div>
-              <div className="score-bar-track">
-                <div className="score-bar-fill" style={{ width: `${Number(score) * 10}%`, background: 'var(--c-brand)' }} />
-              </div>
+          <span className="font-extrabold text-xl tracking-tight text-white">
+            Resume<span className="text-blue-400">AI</span>
+          </span>
+        </div>
+
+        {/* Center: Live Candidate Score Card Demonstration */}
+        <div className="relative z-10 max-w-md w-full mx-auto my-8">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-300 bg-blue-500/20 px-2.5 py-0.5 rounded-full border border-blue-400/20">
+                Top Recommendation #1
+              </span>
+              <span className="text-2xl font-black text-emerald-400">96/100</span>
             </div>
-          ))}
-          <div style={{
-            marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <span className="badge badge-strong">Strong Shortlist</span>
-            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '1.75rem', fontWeight: 700, color: 'var(--c-copper)', letterSpacing: '-0.04em' }}>92</span>
+
+            <div className="mt-4">
+              <h4 className="font-bold text-base text-white">Senior Full-Stack Architect</h4>
+              <p className="text-xs text-slate-300 mt-0.5">Evaluated across 7 semantic dimensions</p>
+            </div>
+
+            <div className="mt-5 space-y-2.5">
+              {[
+                { label: 'Technical Depth', score: '9.8/10', pct: '98%' },
+                { label: 'Chronological Work History', score: '9.5/10', pct: '95%' },
+                { label: 'System Architecture', score: '9.2/10', pct: '92%' },
+              ].map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <div className="flex justify-between text-xs text-slate-300 font-medium">
+                    <span>{item.label}</span>
+                    <span className="font-mono text-blue-300">{item.score}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full" style={{ width: item.pct }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-300">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <CheckCircle2 size={14} /> Ready for Interview
+              </span>
+              <span className="font-mono text-slate-400">Time: 2.4s</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--c-t3)', lineHeight: 1.6, maxWidth: 260 }}>
-            AI-ranked candidate shortlists in minutes — not spreadsheets full of guesswork.
+        {/* Bottom Highlights */}
+        <div className="relative z-10 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+            <ShieldCheck size={16} className="text-blue-400" />
+            <span>Zero-Disk Memory Streaming · GDPR & ATS Compliant</span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Screen 1,000+ candidates in minutes with deterministic date resolution and custom prompt criteria.
           </p>
         </div>
       </div>
 
-      {/* Right panel — form */}
-      <div style={{
-        width: '100%', maxWidth: 480,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '40px 32px',
-        margin: '0 auto',
-      }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 40, alignSelf: 'flex-start' }}>
-          <span style={{
-            width: 32, height: 32, background: 'var(--c-brand)', borderRadius: 9,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <rect x="2" y="2" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-              <path d="M5.5 6.5h7M5.5 9h7M5.5 11.5h4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
+      {/* Right panel — Auth Card */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 max-w-lg mx-auto w-full">
+        {/* Mobile Header */}
+        <div className="flex lg:hidden items-center gap-2 mb-8 self-start">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+            <Sparkles size={16} />
+          </div>
+          <span className="font-bold text-lg text-slate-900">
+            Resume<span className="text-blue-600">AI</span>
           </span>
-          <span style={{ fontWeight: 700, fontSize: '0.9375rem', letterSpacing: '-0.025em', color: 'var(--c-t1)' }}>ResumeAI</span>
         </div>
 
-        <div className="fade-up" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.625rem', fontWeight: 800, letterSpacing: '-0.035em', color: 'var(--c-t1)', marginBottom: 6 }}>
-            Welcome back
+        <div className="w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl shadow-slate-100">
+          {/* Welcome Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold mb-4">
+            <Sparkles size={13} />
+            <span>50 Free Welcome Credits on Sign In</span>
+          </div>
+
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 mb-2">
+            Sign In to ResumeAI
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--c-t2)', marginBottom: 36, textAlign: 'center' }}>
-            Sign in to your ResumeAI workspace.
+          <p className="text-sm text-slate-600 mb-8">
+            Access your recruiter studio, manage active jobs, and review AI rankings.
           </p>
 
-          {/* Error */}
+          {/* Error alert */}
           {error && (
-            <div role="alert" className="alert-error" style={{ marginBottom: 24, width: '100%' }}>
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              {error}
+            <div className="mb-6 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+              <span className="font-bold">Error:</span> {error}
             </div>
           )}
 
-          {/* Google */}
-          <div style={{ display: 'flex', justifyContent: 'center', opacity: loading ? 0.6 : 1, transition: 'opacity 200ms ease', pointerEvents: loading ? 'none' : 'auto' }}>
+          {/* Google Sign In */}
+          <div className="w-full flex justify-center py-2">
             <GoogleLogin
-              onSuccess={c => c.credential && handleGoogle(c.credential)}
+              onSuccess={(c) => c.credential && handleGoogle(c.credential)}
               onError={() => setError('Google sign-in was cancelled.')}
-              theme="filled_black"
+              theme="outline"
               shape="rectangular"
               size="large"
-              width="360"
+              width="100%"
             />
           </div>
-          
-          <div style={{ marginTop: 24, minHeight: 20 }}>
-              {loading && <p style={{ fontSize: '0.875rem', color: 'var(--c-t2)' }}>Signing in...</p>}
-          </div>
 
+          {loading && (
+            <p className="text-center text-xs font-semibold text-blue-600 mt-4 animate-pulse">
+              Authenticating workspace...
+            </p>
+          )}
+
+          {/* Guarantee / Perks */}
+          <div className="mt-8 pt-6 border-t border-slate-100 space-y-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-blue-600" />
+              <span>Instant access to LinkedIn shareable career links</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-blue-600" />
+              <span>Bulk PDF, DOCX & nested ZIP extraction</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Back to Home */}
+        <div className="mt-6 text-center">
+          <Link to="/" className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+            ← Back to Homepage
+          </Link>
         </div>
       </div>
     </div>

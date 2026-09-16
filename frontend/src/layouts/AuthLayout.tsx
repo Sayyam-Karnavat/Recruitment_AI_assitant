@@ -1,29 +1,27 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'API Docs', path: '/developer-docs', icon: Code2 },
+  { label: 'Developer APIs', path: '/developer-docs', icon: Code2 },
   { label: 'Settings', path: '/settings', icon: SettingsIcon },
 ]
 
-// Inline SVG logo mark
-function LogoMark({ size = 18 }: { size?: number }) {
+function LogoMark({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <rect x="2" y="2" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      <path d="M5.5 6.5h7M5.5 9h7M5.5 11.5h4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-    </svg>
+    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
+      <Sparkles size={size - 4} className="text-white" />
+    </div>
   )
 }
 
 export default function AuthLayout() {
   const { logout } = useAuth()
-  const { credits, openWalletModal } = useWallet()
+  const { credits, isUnlimited, openWalletModal } = useWallet()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -32,135 +30,85 @@ export default function AuthLayout() {
     location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--c-base)' }}>
-
-      {/* ── Sidebar ── */}
+    <div className="min-h-screen flex bg-slate-50 text-slate-900 font-sans antialiased">
+      {/* ── Desktop Sidebar ── */}
       <aside
         aria-label="Sidebar navigation"
-        style={{
-          width: collapsed ? 'var(--sidebar-w-rail)' : 'var(--sidebar-w)',
-          // Apple spring-slide: cubic-bezier(0.25, 1, 0.5, 1)
-          transition: 'width 300ms var(--ease-spring-slide)',
-          background: 'var(--c-surface)',
-          borderRight: '1px solid var(--c-border)',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowX: 'hidden',
-          zIndex: 30,
-        }}
+        className={`hidden lg:flex bg-white border-r border-slate-200/90 flex-col flex-shrink-0 sticky top-0 h-screen z-30 transition-all duration-300 shadow-sm ${
+          collapsed ? 'w-16' : 'w-60'
+        }`}
       >
         {/* Logo row */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          padding: '0 14px',
-          height: 56,
-          borderBottom: '1px solid var(--c-border)',
-          flexShrink: 0,
-          transition: 'padding 300ms var(--ease-spring-slide)',
-        }}>
-          {!collapsed && (
+        <div className="flex items-center justify-between px-3.5 h-16 border-b border-slate-200/80 flex-shrink-0 bg-white">
+          {!collapsed ? (
             <Link
               to="/dashboard"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                textDecoration: 'none', overflow: 'hidden',
-                animation: 'fadeIn 0.25s var(--ease-spring) both',
-              }}
+              className="flex items-center gap-2.5 text-decoration-none overflow-hidden"
               aria-label="ResumeAI home"
             >
-              <span style={{
-                width: 30, height: 30,
-                background: 'var(--c-brand)',
-                borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', flexShrink: 0,
-              }}>
-                <LogoMark size={16} />
-              </span>
-              <span style={{
-                fontWeight: 700,
-                fontSize: '0.9375rem',
-                letterSpacing: '-0.025em',
-                color: 'var(--c-t1)',
-                whiteSpace: 'nowrap',
-              }}>
-                ResumeAI
-              </span>
+              <LogoMark size={20} />
+              <div className="flex flex-col">
+                <span className="font-bold text-base tracking-tight text-slate-900 leading-tight">
+                  Resume<span className="text-blue-600">AI</span>
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Recruiter Studio
+                </span>
+              </div>
             </Link>
+          ) : (
+            <div className="mx-auto">
+              <LogoMark size={18} />
+            </div>
           )}
 
           {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(c => !c)}
-            className="btn-icon"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{ flexShrink: 0 }}
           >
             <ChevronLeft
               size={16}
-              style={{
-                transition: 'transform 300ms var(--ease-spring-slide)',
-                transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
+              className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : 'rotate-0'}`}
             />
           </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-2 space-y-0.5" style={{ overflowY: 'auto', overflowX: 'hidden' }}>
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(({ label, path, icon: Icon }) => {
             const active = isActive(path)
             return (
               <Link
                 key={path}
                 to={path}
-                className={`nav-link ${active ? 'active' : ''}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-100 shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                } ${collapsed ? 'justify-center px-2' : ''}`}
                 title={collapsed ? label : undefined}
                 aria-label={collapsed ? label : undefined}
-                style={{ justifyContent: collapsed ? 'center' : undefined }}
               >
-                <Icon size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
-                {!collapsed && (
-                  <span style={{ animation: 'fadeIn 0.2s var(--ease-spring) both' }}>
-                    {label}
-                  </span>
-                )}
+                <Icon size={18} className={active ? 'text-blue-600' : 'text-slate-400'} />
+                {!collapsed && <span>{label}</span>}
               </Link>
             )
           })}
         </nav>
 
-        {/* Logout */}
-        <div style={{ padding: '8px', borderTop: '1px solid var(--c-border)', flexShrink: 0 }}>
+        {/* User & Logout */}
+        <div className="p-3 border-t border-slate-200/80 flex-shrink-0 bg-slate-50/50">
           <button
             onClick={logout}
-            className="nav-link"
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors ${
+              collapsed ? 'justify-center px-2' : ''
+            }`}
             aria-label="Log out"
-            style={{
-              color: 'var(--c-t3)',
-              justifyContent: collapsed ? 'center' : undefined,
-            }}
-            onMouseEnter={e => {
-              ;(e.currentTarget as HTMLElement).style.background = 'var(--c-red-dim)'
-              ;(e.currentTarget as HTMLElement).style.color = 'var(--c-red)'
-            }}
-            onMouseLeave={e => {
-              ;(e.currentTarget as HTMLElement).style.background = ''
-              ;(e.currentTarget as HTMLElement).style.color = 'var(--c-t3)'
-            }}
           >
-            <LogOut size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
-            {!collapsed && (
-              <span style={{ animation: 'fadeIn 0.2s var(--ease-spring) both' }}>
-                Log Out
-              </span>
-            )}
+            <LogOut size={18} className="text-slate-400 group-hover:text-rose-600" />
+            {!collapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
@@ -168,84 +116,131 @@ export default function AuthLayout() {
       {/* ── Mobile drawer overlay ── */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 lg:hidden fade-in"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-40 lg:hidden bg-slate-900/50 backdrop-blur-xs transition-opacity"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* ── Main ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* ── Mobile Sliding Drawer ── */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out lg:hidden ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 h-16 border-b border-slate-200 bg-white">
+          <Link
+            to="/dashboard"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-2.5"
+          >
+            <LogoMark size={20} />
+            <div className="flex flex-col">
+              <span className="font-bold text-base tracking-tight text-slate-900 leading-tight">
+                Resume<span className="text-blue-600">AI</span>
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                Recruiter Studio
+              </span>
+            </div>
+          </Link>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map(({ label, path, icon: Icon }) => {
+            const active = isActive(path)
+            return (
+              <Link
+                key={path}
+                to={path}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-100 shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <Icon size={18} className={active ? 'text-blue-600' : 'text-slate-400'} />
+                <span>{label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div className="p-3 border-t border-slate-200 bg-slate-50">
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              logout()
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+          >
+            <LogOut size={18} className="text-slate-400" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main Content Area ── */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header
-          className="glass"
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 20px',
-            height: 56,
-            gap: 12,
-            borderBottom: '1px solid var(--c-border)',
-            borderLeft: 'none',
-            borderRight: 'none',
-            borderTop: 'none',
-            borderRadius: 0,
-          }}
-        >
+        <header className="sticky top-0 z-20 flex items-center px-4 sm:px-6 h-16 gap-3 bg-white/85 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
           {/* Mobile menu toggle */}
           <button
-            className="btn-icon lg:hidden"
+            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={() => setMobileOpen(o => !o)}
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={mobileOpen}
           >
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <div style={{ flex: 1 }} />
+          
+          <div className="flex-1" />
 
           {/* Wallet credit badge & top-up action */}
           <button
             onClick={openWalletModal}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 14px',
-              borderRadius: 20,
-              border: '1px solid rgba(59, 130, 246, 0.35)',
-              background: 'rgba(59, 130, 246, 0.08)',
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.16)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)')}
-            title="Resume credits balance. Click to recharge."
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border transition-all shadow-sm ${
+              isUnlimited
+                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300 text-blue-700'
+                : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 text-slate-800'
+            }`}
+            title="Account Usage & Credits"
           >
-            <CreditCard size={15} style={{ color: '#3b82f6' }} />
-            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--c-t1)' }}>
-              {credits} Credits
-            </span>
-            <span
-              style={{
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                color: '#3b82f6',
-                background: 'rgba(59, 130, 246, 0.2)',
-                padding: '2px 8px',
-                borderRadius: 12,
-              }}
-            >
-              + Top Up
-            </span>
+            {isUnlimited ? (
+              <>
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white shadow-xs">
+                  <InfinityIcon size={12} strokeWidth={3} />
+                </span>
+                <span className="text-xs font-bold tracking-tight text-blue-900">
+                  Unlimited VIP Pro
+                </span>
+                <span className="text-[10px] font-bold uppercase bg-blue-100/80 text-blue-700 px-2 py-0.5 rounded-full">
+                  No Limits
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} className="text-blue-600" />
+                <span className="text-xs font-bold text-slate-800">
+                  {credits} Credits
+                </span>
+                <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs hover:bg-blue-700">
+                  + Top Up
+                </span>
+              </>
+            )}
           </button>
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, padding: '24px 28px', maxWidth: 1200, width: '100%', margin: '0 auto' }}>
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
