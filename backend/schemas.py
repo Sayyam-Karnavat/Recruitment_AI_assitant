@@ -253,3 +253,32 @@ class EvaluationResult(BaseModel):
     weaknesses: Optional[list[str]] = Field(None, description="Key weaknesses or gaps")
     missing_skills: Optional[list[str]] = Field(None, description="Skills required by JD but missing from candidate")
     categories: Optional[list[CategoryScore]] = Field(None, description="Per-category scores")
+
+
+class FullCandidateScreeningResult(BaseModel):
+    """Unified single-pass structured extraction and evaluation result."""
+    # Document Validation
+    is_valid_resume: bool = Field(True, description="True if document is a valid candidate resume/CV, False if utility bill, invoice, receipt, or non-resume doc")
+    rejection_reason: Optional[str] = Field(None, description="Clear explanation if document is not a valid resume")
+
+    # Candidate Profile
+    name: Optional[str] = Field(None, description="Full name of the candidate")
+    email: Optional[str] = Field(None, description="Email address if found")
+    phone: Optional[str] = Field(None, description="Phone number if found")
+    location: Optional[str] = Field(None, description="Current city/location if found")
+    current_role: Optional[str] = Field(None, description="Current or most recent job title if found")
+    total_experience_years: float = Field(0.0, description="Total years of professional experience", ge=0)
+    skills: Optional[list[str]] = Field(None, description="List of technical skills")
+    work_experience: Optional[list[WorkExperienceItem]] = Field(None, description="List of work experiences")
+    education: Optional[list[EducationItem]] = Field(None, description="List of education entries")
+    projects: Optional[list[ProjectItem]] = Field(None, description="List of projects")
+    certifications: Optional[list[str]] = Field(None, description="List of certifications")
+    achievements: Optional[list[str]] = Field(None, description="List of notable achievements")
+
+    # Evaluation against Job Description
+    overall_score: int = Field(50, description="Overall fit score from 0 to 100", ge=0, le=100)
+    summary: str = Field("", description="Concise 2-sentence executive evaluation summary")
+    strengths: Optional[list[str]] = Field(None, description="Top 2-3 key strengths of the candidate")
+    weaknesses: Optional[list[str]] = Field(None, description="Top 1-2 potential gaps or concerns")
+    missing_skills: Optional[list[str]] = Field(None, description="Skills required by JD but missing from candidate")
+    categories: Optional[list[CategoryScore]] = Field(None, description="Per-category scores (Experience, Skills, Projects, Education, Certifications, Achievements, Domain Match) with 1 concise sentence rationale each")

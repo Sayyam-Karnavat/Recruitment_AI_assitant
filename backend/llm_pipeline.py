@@ -11,22 +11,19 @@ from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 import os
 from config import settings
-from schemas import ExtractedProfile, EvaluationResult
+from schemas import ExtractedProfile, EvaluationResult, FullCandidateScreeningResult
 
 logger = logging.getLogger(__name__)
 
-# Fallback models configuration
+# Active, verified Azure deployment models (prioritizing high-speed gpt-4o-mini)
 FALLBACK_MODELS = [
-    "gpt-4o",
     "gpt-4o-mini",
-    "gpt-4"
+    "gpt-4o"
 ]
 
 
-
-
 def _invoke_with_fallback(chain_builder, input_data: dict):
-    """Try chain across multiple models, using structured output parser."""
+    """Try chain across verified models, using structured output parser."""
     last_error = None
 
     for deployment_name in FALLBACK_MODELS:
@@ -61,7 +58,69 @@ def _invoke_with_fallback(chain_builder, input_data: dict):
 
 
 # ──────────────────────────────────────────────
-# Stage 1: Extraction
+# Single-Pass High-Speed Unified Screening
+# (Extracts structured profile + Evaluates against JD in 1 call)
+# ──────────────────────────────────────────────
+
+UNIFIED_SCREENING_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """You are an expert AI talent recruiter and screening evaluator.
+Evaluate the candidate's resume against the Job Description in a SINGLE, FAST, HIGH-PRECISION pass.
+
+Current Date: {current_date}
+
+CRITICAL RULES:
+1. DOCUMENT INTEGRITY VALIDATION:
+   - First, check if the document is a legitimate candidate resume, CV, or professional bio/profile.
+   - If the document is an electricity/utility bill, invoice, receipt, purchase order, salary slip, bank statement, tax document, random text, or unrelated non-resume document:
+     Set `is_valid_resume = False`, `rejection_reason = "This file was rejected because it was not a valid resume document (detected as a utility bill, invoice, receipt, or non-resume document)."`, `overall_score = 0`, and leave profile fields null.
+   - If it IS a legitimate resume/CV, set `is_valid_resume = True` and `rejection_reason = null`.
+
+2. ACCURATE EXPERIENCE & TIMELINE:
+   - Use {current_date} as the reference point for ongoing/current roles.
+   - Calculate total professional experience years accurately across all non-overlapping roles up to {current_date}.
+   - Express `total_experience_years` as a number (e.g. 3.0, 3.5, 4.0).
+   - Keep work experience `description` strings concise (1 summary sentence per role).
+
+3. SCORING & EVALUATION CRITERIA:
+   {custom_prompt_section}
+   - Score the candidate overall on a strict 0-100 scale based on how well their experience, skills, projects, and domain match the Job Description.
+   - Provide categorical scores (0-10) for Experience, Skills, Projects, Education, Certifications, Achievements, Domain Match.
+   - Keep category `rationale` strings crisp and concise (1 single sentence per category).
+   - Provide a 2-sentence executive `summary`, 2-3 top `strengths`, and 1-2 `weaknesses` / `missing_skills`."""),
+    ("human", """Job Description:
+{job_description}
+
+Candidate Resume Text:
+{text}""")
+])
+
+
+async def screen_candidate_unified(raw_text: str, job_description: str, custom_prompt: str = None) -> FullCandidateScreeningResult | None:
+    """Run single-pass unified extraction + evaluation on resume text against JD."""
+    try:
+        current_date_str = datetime.now().strftime("%B %Y")
+        custom_prompt_section = f"USER CUSTOM EVALUATION CRITERIA:\n{custom_prompt}\n(Heavily weigh the above criteria when scoring.)\n" if custom_prompt else ""
+
+        input_data = {
+            "current_date": current_date_str,
+            "custom_prompt_section": custom_prompt_section,
+            "job_description": job_description[:3500],
+            "text": raw_text[:6500]
+        }
+
+        result = await asyncio.to_thread(
+            _invoke_with_fallback,
+            lambda llm: UNIFIED_SCREENING_PROMPT | llm.with_structured_output(FullCandidateScreeningResult),
+            input_data
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Unified screening failed: {e}")
+        return None
+
+
+# ──────────────────────────────────────────────
+# Legacy / Standalone Helpers (Preserved for compatibility)
 # ──────────────────────────────────────────────
 
 EXTRACTION_PROMPT = ChatPromptTemplate.from_messages([
@@ -105,10 +164,6 @@ async def extract_profile(raw_text: str) -> ExtractedProfile | None:
         return None
 
 
-# ──────────────────────────────────────────────
-# Stage 2: Evaluation
-# ──────────────────────────────────────────────
-
 EVALUATION_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """You are an expert recruitment evaluator. Evaluate the candidate against the job description.
 
@@ -116,9 +171,8 @@ Current Date Context: {current_date}
 
 CRITICAL EVALUATION & EXPERIENCE CALCULATION RULES:
 - Use Current Date ({current_date}) to evaluate ongoing roles ('Present' / 'Current').
-- Calculate total experience accurately up to {current_date}. For instance, a candidate working from Feb 2024 to Nov 2025 plus an ongoing role or education timeline must be evaluated up to {current_date}.
+- Calculate total experience accurately up to {current_date}.
 - Do NOT falsely penalize a candidate for experience duration based on an outdated current year.
-Evaluate total years across all work experience and project history. If total experience meets or exceeds the required years in the job description, score the Experience category appropriately and do not reject solely on experience duration.
 
 {custom_prompt_section}
 
@@ -146,7 +200,7 @@ async def evaluate_candidate(profile: ExtractedProfile, job_description: str, cu
     """Run LLM evaluation on a candidate profile against a JD."""
     try:
         current_date_str = datetime.now().strftime("%B %Y")
-        custom_prompt_section = f"USER CUSTOM EVALUATION CRITERIA:\n{custom_prompt}\n(Heavily weigh the above criteria when scoring and making your recommendation.)\n" if custom_prompt else ""
+        custom_prompt_section = f"USER CUSTOM EVALUATION CRITERIA:\n{custom_prompt}\n(Heavily weigh the above criteria when scoring.)\n" if custom_prompt else ""
 
         input_data = {
             "current_date": current_date_str,

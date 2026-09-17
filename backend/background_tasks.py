@@ -13,7 +13,7 @@ from uuid import UUID
 
 from database import get_pool
 from file_parser import extract_text
-from llm_pipeline import extract_profile, evaluate_candidate
+from llm_pipeline import screen_candidate_unified, extract_profile, evaluate_candidate
 from routes_ws import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -193,7 +193,7 @@ async def process_single_candidate(
     custom_prompt: str = None,
     batch_progress: tuple[int, int] = (1, 1)
 ):
-    """Full pipeline for one candidate: text extraction → LLM extraction → LLM evaluation."""
+    """Full pipeline for one candidate using single-pass unified extraction & evaluation."""
 
     # Fetch candidate record
     await cur.execute(
@@ -223,25 +223,39 @@ async def process_single_candidate(
         )
         return
 
-    # Step 2: LLM structured extraction
+    # Step 2: Unified single-pass extraction + evaluation
     try:
-        profile_data = await extract_profile(raw_text)
+        screening_result = await screen_candidate_unified(raw_text, job_description, custom_prompt)
     except Exception as e:
-        # System fault during LLM extraction
+        # System fault during LLM screening
         await handle_system_fault(
             conn, cur, candidate_id, user_id,
-            reason=f"LLM Parsing Error: {str(e)}",
+            reason=f"LLM Screening Error: {str(e)}",
             job_id=job_id,
             batch_progress=batch_progress
         )
         return
 
-    if not profile_data or profile_data.is_valid_resume is False or not profile_data.name or (not profile_data.skills and not profile_data.work_experience and not profile_data.education):
-        # User fault: document is a bill, invoice, or non-resume document
+    if not screening_result:
+        await handle_system_fault(
+            conn, cur, candidate_id, user_id,
+            reason="Screening pipeline returned null result.",
+            job_id=job_id,
+            batch_progress=batch_progress
+        )
+        return
+
+    # Step 3: Document integrity validation
+    if (
+        screening_result.is_valid_resume is False
+        or not screening_result.name
+        or (not screening_result.skills and not screening_result.work_experience and not screening_result.education)
+    ):
+        # User fault: document is a bill, invoice, receipt, or non-resume document
         reason = (
-            profile_data.rejection_reason
-            if (profile_data and profile_data.rejection_reason)
-            else "File was rejected because it was not a valid resume document (e.g. utility bill, invoice, receipt, or non-resume document)."
+            screening_result.rejection_reason
+            if screening_result.rejection_reason
+            else "File was rejected because it was not a valid resume document (detected as a utility bill, invoice, receipt, or non-resume file)."
         )
         await handle_user_fault(
             conn, cur, candidate_id, job_id,
@@ -250,10 +264,17 @@ async def process_single_candidate(
         )
         return
 
-    await cur.execute("UPDATE candidates SET status = 'parsed' WHERE id = %s", (candidate_id,))
+    # Candidate is a valid resume
+    # Update candidate basic details
+    await cur.execute(
+        "UPDATE candidates SET status = 'evaluated', candidate_name = %s, candidate_email = %s WHERE id = %s",
+        (screening_result.name, screening_result.email, candidate_id)
+    )
 
-    # Insert or update profile
-    profile_dump = profile_data.model_dump()
+    # Insert or update candidate profile
+    profile_dump = screening_result.model_dump()
+    exp_years = int(round(screening_result.total_experience_years or 0))
+
     await cur.execute(
         """INSERT INTO candidate_profiles
            (candidate_id, prof_name, prof_email, phone, prof_location, role_title, total_experience_years,
@@ -273,47 +294,24 @@ async def process_single_candidate(
             certifications = EXCLUDED.certifications,
             achievements = EXCLUDED.achievements""",
         (
-            candidate_id, profile_data.name, profile_data.email, profile_data.phone,
-            profile_data.location, profile_data.current_role, profile_data.total_experience_years,
+            candidate_id, screening_result.name, screening_result.email, screening_result.phone,
+            screening_result.location, screening_result.current_role, exp_years,
             json.dumps(profile_dump.get("skills", [])), json.dumps(profile_dump.get("work_experience", [])),
             json.dumps(profile_dump.get("education", [])), json.dumps(profile_dump.get("projects", [])),
             json.dumps(profile_dump.get("certifications", [])), json.dumps(profile_dump.get("achievements", [])),
         )
     )
-    await conn.commit()
-
-    # Step 3: LLM evaluation against JD
-    try:
-        eval_result = await evaluate_candidate(profile_data, job_description, custom_prompt)
-    except Exception as e:
-        # System fault during LLM evaluation
-        await handle_system_fault(
-            conn, cur, candidate_id, user_id,
-            reason=f"LLM Evaluation Error: {str(e)}",
-            job_id=job_id,
-            batch_progress=batch_progress
-        )
-        return
-
-    if not eval_result:
-        await handle_system_fault(
-            conn, cur, candidate_id, user_id,
-            reason="Evaluation pipeline returned null result.",
-            job_id=job_id,
-            batch_progress=batch_progress
-        )
-        return
 
     # Fetch job min_passing_score threshold
     await cur.execute("SELECT min_passing_score FROM jobs WHERE id = %s", (job_id,))
     job_threshold_row = await cur.fetchone()
     min_passing_score = (job_threshold_row[0] if job_threshold_row and job_threshold_row[0] is not None else 50)
 
-    final_score = eval_result.overall_score
+    final_score = screening_result.overall_score
     # Proportional dynamic scaling applied consistently
     final_recommendation = compute_proportional_recommendation(final_score, min_passing_score)
-    final_summary = eval_result.summary or ""
-    final_weaknesses = list(eval_result.weaknesses or [])
+    final_summary = screening_result.summary or ""
+    final_weaknesses = list(screening_result.weaknesses or [])
 
     # Enforce minimum passing threshold explanation if below cutoff
     if final_score < min_passing_score:
@@ -325,25 +323,31 @@ async def process_single_candidate(
         if rejection_reason not in final_weaknesses:
             final_weaknesses.append(rejection_reason)
 
-    await cur.execute("UPDATE candidates SET status = 'evaluated' WHERE id = %s", (candidate_id,))
-
     # Insert evaluation
     await cur.execute(
         """INSERT INTO evaluations
            (candidate_id, overall_score, recommendation, summary, strengths, weaknesses, missing_skills)
            VALUES (%s, %s, %s, %s, %s, %s, %s)
+           ON CONFLICT (candidate_id) DO UPDATE SET
+            overall_score = EXCLUDED.overall_score,
+            recommendation = EXCLUDED.recommendation,
+            summary = EXCLUDED.summary,
+            strengths = EXCLUDED.strengths,
+            weaknesses = EXCLUDED.weaknesses,
+            missing_skills = EXCLUDED.missing_skills
            RETURNING id""",
         (
             candidate_id, final_score, final_recommendation,
-            final_summary, json.dumps(eval_result.strengths),
-            json.dumps(final_weaknesses), json.dumps(eval_result.missing_skills),
+            final_summary, json.dumps(screening_result.strengths or []),
+            json.dumps(final_weaknesses), json.dumps(screening_result.missing_skills or []),
         )
     )
     eval_row = await cur.fetchone()
     evaluation_id = str(eval_row[0])
 
     # Insert category scores
-    for cat in (eval_result.categories or []):
+    await cur.execute("DELETE FROM evaluation_categories WHERE evaluation_id = %s", (evaluation_id,))
+    for cat in (screening_result.categories or []):
         await cur.execute(
             """INSERT INTO evaluation_categories (evaluation_id, category, score, rationale)
                VALUES (%s, %s, %s, %s)""",
@@ -358,7 +362,7 @@ async def process_single_candidate(
         "type": "candidate_update",
         "candidate_id": str(candidate_id),
         "status": "evaluated",
-        "name": profile_data.name,
+        "name": screening_result.name,
         "overall_score": final_score,
         "recommendation": final_recommendation,
         "processed_files": processed_files,
@@ -375,9 +379,9 @@ async def process_single_candidate(
             "event": "candidate.evaluated",
             "candidate_id": str(candidate_id),
             "job_id": str(job_id),
-            "name": profile_data.name,
-            "overall_score": eval_result.overall_score,
-            "recommendation": eval_result.recommendation,
+            "name": screening_result.name,
+            "overall_score": final_score,
+            "recommendation": final_recommendation,
             "status": "evaluated"
         }
         try:
@@ -385,3 +389,4 @@ async def process_single_candidate(
                 await client.post(webhook_url, json=payload, timeout=5.0)
         except Exception as e:
             logger.error(f"Webhook delivery failed for {webhook_url}: {e}")
+
