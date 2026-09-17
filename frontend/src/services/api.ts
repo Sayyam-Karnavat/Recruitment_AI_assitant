@@ -4,20 +4,25 @@ const api = axios.create({
   baseURL: '/api',
 })
 
-// Attach JWT token to every request
+// Attach JWT token only to protected employer requests (skip for public candidate endpoints)
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (!config.url?.includes('/public/')) {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   return config
 })
 
-// Handle 401 → redirect to login (skip for auth endpoints)
+// Handle 401 → redirect to login only for protected employer routes and endpoints
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/')) {
+    const isPublicUrl = error.config?.url?.includes('/public/') || error.config?.url?.includes('/auth/')
+    const isPublicPage = window.location.pathname.startsWith('/careers') || window.location.pathname === '/'
+
+    if (error.response?.status === 401 && !isPublicUrl && !isPublicPage) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }

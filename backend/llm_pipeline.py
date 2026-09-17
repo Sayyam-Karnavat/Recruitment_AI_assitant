@@ -70,10 +70,10 @@ Current Date: {current_date}
 
 CRITICAL RULES:
 1. DOCUMENT INTEGRITY VALIDATION:
-   - First, check if the document is a legitimate candidate resume, CV, or professional bio/profile.
-   - If the document is an electricity/utility bill, invoice, receipt, purchase order, salary slip, bank statement, tax document, random text, or unrelated non-resume document:
-     Set `is_valid_resume = False`, `rejection_reason = "This file was rejected because it was not a valid resume document (detected as a utility bill, invoice, receipt, or non-resume document)."`, `overall_score = 0`, and leave profile fields null.
-   - If it IS a legitimate resume/CV, set `is_valid_resume = True` and `rejection_reason = null`.
+   - Determine whether the document represents a resume, CV, candidate profile, or professional portfolio (including test or sample resumes).
+   - ONLY set `is_valid_resume = False` if the document is definitely an unrelated non-resume file, such as a utility/electricity bill, commercial invoice, store receipt, bank statement, tax form, shipping order, or completely random unreadable text without any professional background.
+   - If the document contains candidate credentials (name, job history, education, projects, or technical skills), it IS a valid resume: ALWAYS set `is_valid_resume = True` and `rejection_reason = null`.
+   - IMPORTANT: If a candidate has low relevance or a different domain (e.g., Frontend Developer applying for a Backend/Forward Deployed Engineer role), they are STILL a valid resume. Do NOT mark them as invalid. Extract their profile, evaluate them against the JD, and assign a lower matching score (e.g. 20-45).
 
 2. ACCURATE EXPERIENCE & TIMELINE:
    - Use {current_date} as the reference point for ongoing/current roles.

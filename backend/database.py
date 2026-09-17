@@ -207,7 +207,7 @@ async def open_pool():
     """Open the connection pool. Call during app startup."""
     global pool
     pool = psycopg_pool.AsyncConnectionPool(
-        conninfo=settings.DATABASE_URL, min_size=2, max_size=10, open=False
+        conninfo=settings.DATABASE_URL, min_size=4, max_size=30, open=False
     )
     await pool.open()
 

@@ -7,6 +7,7 @@ Features:
 - Webhook notifications
 """
 
+import asyncio
 import json
 import logging
 from uuid import UUID
@@ -27,16 +28,20 @@ async def process_batch(
     job_description: str,
     custom_prompt: str = None
 ):
-    """Process all candidates in a batch with error handling and real-time events."""
+    """Process all candidates in a batch concurrently with parallel async workers and real-time events."""
     pool = await get_pool()
     total_files = len(candidate_ids)
-    processed_files = 0
+    processed_count = 0
+    progress_lock = asyncio.Lock()
 
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            try:
-                for candidate_id in candidate_ids:
-                    processed_files += 1
+    # Semaphore to bound in-app parallel async concurrency (up to 15 concurrent resumes)
+    sem = asyncio.Semaphore(15)
+
+    async def _process_candidate_task(candidate_id: str):
+        nonlocal processed_count
+        async with sem:
+            async with pool.connection() as conn:
+                async with conn.cursor() as cur:
                     try:
                         await process_single_candidate(
                             conn, cur,
@@ -45,48 +50,61 @@ async def process_batch(
                             user_id=user_id,
                             job_description=job_description,
                             custom_prompt=custom_prompt,
-                            batch_progress=(processed_files, total_files)
+                            batch_progress=(0, total_files)
                         )
                     except Exception as e:
                         logger.error(f"Unexpected error processing candidate {candidate_id}: {e}", exc_info=True)
-                        await handle_system_fault(conn, cur, candidate_id, user_id, f"Unexpected worker error: {str(e)}")
+                        await handle_system_fault(conn, cur, candidate_id, user_id, f"Unexpected worker error: {str(e)}", job_id=job_id, batch_progress=(0, total_files))
 
-                    # Update batch progress in DB
-                    await cur.execute(
-                        "UPDATE upload_batches SET processed_files = %s WHERE id = %s",
-                        (processed_files, batch_id)
-                    )
-                    await conn.commit()
+                    async with progress_lock:
+                        processed_count += 1
+                        current_processed = processed_count
+                        try:
+                            await cur.execute(
+                                "UPDATE upload_batches SET processed_files = %s WHERE id = %s",
+                                (current_processed, batch_id)
+                            )
+                            await conn.commit()
+                        except Exception as pe:
+                            logger.warning(f"Failed to update batch progress: {pe}")
 
-                # Mark batch complete
+    try:
+        tasks = [_process_candidate_task(cid) for cid in candidate_ids]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Mark batch complete
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
                 await cur.execute(
-                    "UPDATE upload_batches SET status = 'completed' WHERE id = %s",
+                    "UPDATE upload_batches SET status = 'completed', processed_files = total_files WHERE id = %s",
                     (batch_id,)
                 )
                 await conn.commit()
 
-                # Broadcast batch completed via WebSocket
-                await ws_manager.broadcast_to_job(str(job_id), {
-                    "type": "batch_completed",
-                    "batch_id": str(batch_id),
-                    "total_files": total_files,
-                    "processed_files": processed_files,
-                    "status": "completed"
-                })
+        # Broadcast batch completed via WebSocket
+        await ws_manager.broadcast_to_job(str(job_id), {
+            "type": "batch_completed",
+            "batch_id": str(batch_id),
+            "total_files": total_files,
+            "processed_files": total_files,
+            "status": "completed"
+        })
 
-            except Exception as e:
-                logger.error(f"Batch {batch_id} catastrophic failure: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Batch {batch_id} catastrophic failure: {e}", exc_info=True)
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
                 await cur.execute(
                     "UPDATE upload_batches SET status = 'failed' WHERE id = %s",
                     (batch_id,)
                 )
                 await conn.commit()
 
-                await ws_manager.broadcast_to_job(str(job_id), {
-                    "type": "batch_failed",
-                    "batch_id": str(batch_id),
-                    "error": str(e)
-                })
+        await ws_manager.broadcast_to_job(str(job_id), {
+            "type": "batch_failed",
+            "batch_id": str(batch_id),
+            "error": str(e)
+        })
 
 
 async def handle_user_fault(conn, cur, candidate_id: str, job_id: str, reason: str, batch_progress: tuple[int, int]):

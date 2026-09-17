@@ -114,8 +114,14 @@ export default function PublicJobApply() {
       } else {
         setHasAlreadyApplied(false)
       }
-    } catch {
-      // ignore
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setGoogleToken(null)
+        setCandidateProfile(null)
+        localStorage.removeItem('candidate_google_token')
+        localStorage.removeItem('candidate_google_profile')
+        setErrorMsg('Your Google sign-in session has expired. Please sign in with Google below.')
+      }
     } finally {
       setCheckingApplication(false)
     }
@@ -155,6 +161,14 @@ export default function PublicJobApply() {
       const isShortlisted =
         scorecard.recommendation === 'Strong Shortlist' ||
         scorecard.recommendation === 'Shortlist'
+
+      const isMaybe =
+        scorecard.recommendation === 'Maybe'
+
+      const isRejected =
+        scorecard.recommendation === 'Reject' ||
+        scorecard.status === 'failed' ||
+        (!isShortlisted && !isMaybe)
 
       if (isShortlisted && !confettiFiredRef.current) {
         confettiFiredRef.current = true
@@ -286,7 +300,15 @@ export default function PublicJobApply() {
       setSubmittedCandidateId(res.data.candidate_id)
       setHasAlreadyApplied(true)
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.detail || 'Failed to submit application. Please try again.')
+      if (err.response?.status === 401) {
+        setGoogleToken(null)
+        setCandidateProfile(null)
+        localStorage.removeItem('candidate_google_token')
+        localStorage.removeItem('candidate_google_profile')
+        setErrorMsg('Your Google sign-in session has expired. Please sign in with Google below to submit your application.')
+      } else {
+        setErrorMsg(err.response?.data?.detail || 'Failed to submit application. Please try again.')
+      }
     } finally {
       setIsSubmitting(false)
     }
