@@ -17,6 +17,8 @@ interface CandidateData {
   id: string
   filename: string
   status: string
+  error_type: string | null
+  error_reason: string | null
   raw_text: string | null
   created_at: string
   profile: {
@@ -86,7 +88,10 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
-function getRecommendationBadge(rec: string | null) {
+function getRecommendationBadge(rec: string | null, status?: string) {
+  if (status === 'failed') {
+    return <span className="badge badge-reject text-sm py-1 px-3">Invalid / Rejected</span>
+  }
   switch (rec) {
     case 'Strong Shortlist':
       return <span className="badge badge-strong text-sm py-1 px-3">Strong Match</span>
@@ -97,6 +102,9 @@ function getRecommendationBadge(rec: string | null) {
     case 'Reject':
       return <span className="badge badge-reject text-sm py-1 px-3">Not Selected</span>
     default:
+      if (status === 'pending') {
+        return <span className="badge badge-silver text-sm py-1 px-3">Queued</span>
+      }
       return <span className="badge badge-silver text-sm py-1 px-3">Pending Evaluation</span>
   }
 }
@@ -414,6 +422,41 @@ export default function CandidateDetail() {
                 </div>
               )}
             </>
+          ) : data.status === 'failed' ? (
+            <div className="card p-6 sm:p-8 bg-white border border-rose-200 shadow-sm space-y-6 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <div className="w-24 h-24 rounded-full bg-rose-50 border-4 border-rose-200 flex flex-col items-center justify-center flex-shrink-0">
+                  <X className="w-8 h-8 text-rose-600" />
+                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider mt-0.5">Rejected</span>
+                </div>
+                <div className="space-y-3 flex-1 text-center sm:text-left">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                    <span className="badge badge-reject text-sm py-1 px-3">Invalid / Rejected</span>
+                    <span className="text-xs font-semibold text-rose-600">
+                      Document Invalidation
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Document Not Processed as Valid Resume
+                  </h3>
+
+                  <div className="p-4 rounded-xl bg-rose-50/80 border border-rose-200 space-y-1.5 text-left">
+                    <p className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                      Reason for Rejection:
+                    </p>
+                    <p className="text-xs text-rose-800 leading-relaxed font-medium">
+                      {data.error_reason || 'This file was rejected because it was not identified as a legitimate resume document (e.g. utility bill, invoice, receipt, or unsupported format).'}
+                    </p>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    The AI candidate screening engine only evaluates legitimate professional CVs, resumes, or candidate profile portfolios. Utility bills, invoices, receipts, commercial vouchers, or non-resume documents are automatically filtered out.
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="card p-12 text-center bg-white border border-slate-200 shadow-sm space-y-2">
               <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto" />

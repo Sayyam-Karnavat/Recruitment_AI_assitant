@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
-import { Plus, Users, Loader2, Share2, Check, Sparkles, Briefcase, Target, Award, ArrowUpRight, Search, Trash2 } from 'lucide-react'
+import { Plus, Users, Loader2, Share2, Check, Sparkles, Briefcase, Target, Award, ArrowUpRight, Search, Trash2, Pencil, X } from 'lucide-react'
 
 interface Job {
   id: string
@@ -13,6 +13,7 @@ interface Job {
   created_at: string
   candidate_count: number
   custom_prompt?: string
+  min_passing_score?: number
   active_days_limit?: number
   max_applications?: number
 }
@@ -32,6 +33,88 @@ export default function Dashboard() {
   const [activeDaysLimit, setActiveDaysLimit] = useState<number | ''>('')
   const [maxApplications, setMaxApplications] = useState<number | ''>('')
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
+
+  // Edit Job State
+  const [editingJob, setEditingJob] = useState<Job | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editTargetCount, setEditTargetCount] = useState<number | ''>(10)
+  const [editMinPassingScore, setEditMinPassingScore] = useState<number | ''>(50)
+  const [editCustomPrompt, setEditCustomPrompt] = useState('')
+  const [editActiveDaysLimit, setEditActiveDaysLimit] = useState<number | ''>('')
+  const [editMaxApplications, setEditMaxApplications] = useState<number | ''>('')
+  const [editStatus, setEditStatus] = useState<string>('active')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  const handleOpenEdit = (job: Job, e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setEditingJob(job)
+    setEditTitle(job.title)
+    setEditDescription(job.description)
+    setEditTargetCount(job.target_shortlist_count)
+    setEditMinPassingScore(job.min_passing_score ?? 50)
+    setEditCustomPrompt(job.custom_prompt || '')
+    setEditActiveDaysLimit(job.active_days_limit ?? '')
+    setEditMaxApplications(job.max_applications ?? '')
+    setEditStatus(job.status)
+    setEditError('')
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingJob) return
+    setEditError('')
+
+    const cleanTitle = editTitle.trim()
+    const cleanDesc = editDescription.trim()
+
+    if (!cleanTitle) {
+      setEditError('Job title is required.')
+      return
+    }
+    if (cleanDesc.length < 10) {
+      setEditError('Job description must be at least 10 characters.')
+      return
+    }
+    if (editTargetCount !== '' && (Number(editTargetCount) < 1 || Number(editTargetCount) > 500)) {
+      setEditError('Target shortlists must be between 1 and 500.')
+      return
+    }
+    if (editMinPassingScore !== '' && (Number(editMinPassingScore) < 1 || Number(editMinPassingScore) > 100)) {
+      setEditError('Passing score must be between 1 and 100.')
+      return
+    }
+    if (editActiveDaysLimit !== '' && (Number(editActiveDaysLimit) < 1 || Number(editActiveDaysLimit) > 365)) {
+      setEditError('Active days limit must be between 1 and 365 days.')
+      return
+    }
+    if (editMaxApplications !== '' && (Number(editMaxApplications) < 1 || Number(editMaxApplications) > 50000)) {
+      setEditError('Max applications must be between 1 and 50,000.')
+      return
+    }
+
+    setIsSavingEdit(true)
+    try {
+      await api.patch(`/jobs/${editingJob.id}`, {
+        title: cleanTitle,
+        description: cleanDesc,
+        target_shortlist_count: editTargetCount === '' ? 10 : Number(editTargetCount),
+        min_passing_score: editMinPassingScore === '' ? 50 : Number(editMinPassingScore),
+        custom_prompt: editCustomPrompt.trim() || null,
+        active_days_limit: editActiveDaysLimit === '' ? null : Number(editActiveDaysLimit),
+        max_applications: editMaxApplications === '' ? null : Number(editMaxApplications),
+        status: editStatus,
+      })
+      setEditingJob(null)
+      fetchJobs()
+    } catch (err: any) {
+      setEditError(err.response?.data?.detail || 'Failed to update position.')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
 
   const fetchJobs = async () => {
     try {
@@ -200,7 +283,7 @@ export default function Dashboard() {
       </div>
 
       {/* Metrics Banner */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">Active Jobs</span>
@@ -228,15 +311,6 @@ export default function Dashboard() {
             {jobs.reduce((acc, j) => acc + (j.target_shortlist_count || 0), 0)}
           </div>
           <span className="text-[11px] sm:text-xs text-slate-500 mt-1 block">Quota target</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">Avg Time</span>
-            <Sparkles size={18} className="text-amber-500 flex-shrink-0" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">~2.5s</div>
-          <span className="text-[11px] sm:text-xs text-slate-500 mt-1 block">Per resume</span>
         </div>
       </div>
 
@@ -445,10 +519,17 @@ export default function Dashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     {job.status.toUpperCase()}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-400 font-mono">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400 font-mono mr-1">
                       {new Date(job.created_at).toLocaleDateString()}
                     </span>
+                    <button
+                      onClick={(e) => handleOpenEdit(job, e)}
+                      className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-70 hover:opacity-100"
+                      title="Edit this position & limits"
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       onClick={(e) => handleDeleteJob(job.id, job.title, e)}
                       className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-70 hover:opacity-100"
@@ -521,6 +602,185 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Edit Job Modal */}
+      {editingJob && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md fade-in"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setEditingJob(null)}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 w-full max-w-xl shadow-2xl fade-up max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Edit Position & Filters</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Update role requirements, passing score, active days, and application limits.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingJob(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              {editError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                  {editError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Job Title *
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="field"
+                  placeholder="e.g. Senior Backend Engineer"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Job Description & Requirements *
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="field min-h-[140px]"
+                  placeholder="Paste key responsibilities, frameworks, and qualifications..."
+                  required
+                  minLength={10}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Custom AI Evaluation Prompt (Optional)
+                </label>
+                <textarea
+                  value={editCustomPrompt}
+                  onChange={(e) => setEditCustomPrompt(e.target.value)}
+                  className="field min-h-[80px]"
+                  placeholder="e.g. Give heavy weight to candidates with high-throughput microservices in Python/Go."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Target Shortlists
+                  </label>
+                  <input
+                    type="number"
+                    value={editTargetCount}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditTargetCount(val === '' ? '' : parseInt(val, 10))
+                    }}
+                    className="field"
+                    min={1}
+                    max={500}
+                    placeholder="e.g. 10"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" title="Auto-reject candidates scoring below this score out of 100">
+                    Passing Score (0-100)
+                  </label>
+                  <input
+                    type="number"
+                    value={editMinPassingScore}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditMinPassingScore(val === '' ? '' : parseInt(val, 10))
+                    }}
+                    className="field"
+                    min={1}
+                    max={100}
+                    placeholder="e.g. 50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" title="Extend or modify the active days window">
+                    Active Days Limit
+                  </label>
+                  <input
+                    type="number"
+                    value={editActiveDaysLimit}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditActiveDaysLimit(val === '' ? '' : parseInt(val, 10))
+                    }}
+                    className="field"
+                    min={1}
+                    placeholder="e.g. 30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" title="Extend or modify maximum application cap">
+                    Max Applications
+                  </label>
+                  <input
+                    type="number"
+                    value={editMaxApplications}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditMaxApplications(val === '' ? '' : parseInt(val, 10))
+                    }}
+                    className="field"
+                    min={1}
+                    placeholder="e.g. 150"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Position Status
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="field text-xs"
+                >
+                  <option value="active">Active (Accepting Applications)</option>
+                  <option value="closed">Closed (No New Applications)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingJob(null)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="btn btn-primary"
+                >
+                  {isSavingEdit && <Loader2 size={16} className="animate-spin" />}
+                  <span>{isSavingEdit ? 'Saving Changes...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

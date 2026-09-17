@@ -29,7 +29,8 @@ async def list_candidates(
 
     await cur.execute(
         """SELECT c.id, c.filename, c.status, c.created_at,
-                  cp.prof_name, e.overall_score, e.recommendation
+                  cp.prof_name, e.overall_score, e.recommendation,
+                  c.error_type, c.error_reason
            FROM candidates c
            LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
            LEFT JOIN evaluations e ON e.candidate_id = c.id
@@ -41,7 +42,8 @@ async def list_candidates(
     items = [
         CandidateListItem(
             id=r[0], filename=r[1], status=r[2], created_at=r[3],
-            name=r[4], overall_score=r[5], recommendation=r[6]
+            name=r[4], overall_score=r[5], recommendation=r[6],
+            error_type=r[7], error_reason=r[8]
         )
         for r in rows
     ]
@@ -51,9 +53,13 @@ async def list_candidates(
         s = search.strip().lower()
         items = [i for i in items if (i.name and s in i.name.lower()) or (i.filename and s in i.filename.lower())]
 
-    # Filter by recommendation
+    # Filter by recommendation (Reject includes candidates whose screening failed or were invalid)
     if recommendation:
-        items = [i for i in items if i.recommendation and i.recommendation.lower() == recommendation.lower()]
+        rec_lower = recommendation.lower()
+        if rec_lower == "reject":
+            items = [i for i in items if (i.recommendation and i.recommendation.lower() == "reject") or i.status == "failed"]
+        else:
+            items = [i for i in items if i.recommendation and i.recommendation.lower() == rec_lower]
 
     # Sort
     if sort_by == "score":
@@ -76,7 +82,7 @@ async def get_candidate_detail(
 
     # Get candidate
     await cur.execute(
-        "SELECT id, job_id, filename, status, raw_text, created_at FROM candidates WHERE id = %s",
+        "SELECT id, job_id, filename, status, raw_text, created_at, error_type, error_reason FROM candidates WHERE id = %s",
         (str(candidate_id),)
     )
     c = await cur.fetchone()
@@ -130,6 +136,7 @@ async def get_candidate_detail(
 
     return CandidateDetailResponse(
         id=c[0], filename=c[2], status=c[3], raw_text=c[4], created_at=c[5],
+        error_type=c[6], error_reason=c[7],
         profile=profile_response, evaluation=evaluation_response,
     )
 

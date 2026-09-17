@@ -100,13 +100,33 @@ async def update_job(job_id: UUID, body: JobUpdate, user=Depends(get_current_use
         values
     )
     row = await cur.fetchone()
-    
+    new_min_score = row[9] or 50
+
+    # If min_passing_score changed or was provided, recompute candidate recommendations dynamically
+    if body.min_passing_score is not None:
+        from background_tasks import compute_proportional_recommendation
+        await cur.execute(
+            """SELECT e.id, e.overall_score 
+               FROM evaluations e 
+               JOIN candidates c ON e.candidate_id = c.id 
+               WHERE c.job_id = %s""",
+            (str(job_id),)
+        )
+        eval_rows = await cur.fetchall()
+        for e_id, score in eval_rows:
+            if score is not None:
+                new_rec = compute_proportional_recommendation(score, new_min_score)
+                await cur.execute(
+                    "UPDATE evaluations SET recommendation = %s WHERE id = %s",
+                    (new_rec, str(e_id))
+                )
+
     # We also need candidate_count for the response
     await cur.execute("SELECT COUNT(id) FROM candidates WHERE job_id = %s", (str(job_id),))
     c_count = (await cur.fetchone())[0]
 
     await conn.commit()
-    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], custom_prompt=row[6], active_days_limit=row[7], max_applications=row[8], min_passing_score=row[9] or 50, candidate_count=c_count)
+    return JobResponse(id=row[0], title=row[1], description=row[2], target_shortlist_count=row[3], status=row[4], created_at=row[5], custom_prompt=row[6], active_days_limit=row[7], max_applications=row[8], min_passing_score=new_min_score, candidate_count=c_count)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

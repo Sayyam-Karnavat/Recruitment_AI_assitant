@@ -65,11 +65,19 @@ def _invoke_with_fallback(chain_builder, input_data: dict):
 # ──────────────────────────────────────────────
 
 EXTRACTION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are an expert resume parser. Extract structured information from the resume text.
+    ("system", """You are an expert resume parser and document evaluator. Extract structured information from the resume text.
 Only extract factual data actually present in the resume. Do not invent or assume any information.
 If a field is not present in the resume, use null for that field.
 
 Current Date: {current_date}
+
+CRITICAL DOCUMENT VALIDATION RULES:
+1. First, check if the document is a legitimate candidate resume, CV, or professional bio/profile.
+2. If the document is an electricity/utility bill, invoice, receipt, purchase order, salary slip, bank statement, tax document, random text, or unrelated non-resume file:
+   - Set `is_valid_resume = False`
+   - Set `rejection_reason = "This file was rejected because it was not a valid resume document (detected as a utility bill, invoice, receipt, or non-resume document)."`
+   - Set `name = null` and all other fields to null or defaults.
+3. If and only if it IS a legitimate resume or CV, set `is_valid_resume = True` and `rejection_reason = null`, and extract the profile fields.
 
 CRITICAL RULES FOR CALCULATING `total_experience_years`:
 - Use the Current Date ({current_date}) as the ending reference point for any role marked "Present", "Current", or ongoing.

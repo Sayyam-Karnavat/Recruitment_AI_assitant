@@ -168,6 +168,36 @@ async def init_db():
                     "INSERT INTO users (email) VALUES (%s)",
                     ("admin@resumeai.com",)
                 )
+
+            # Sync all existing candidate evaluations to proportional dynamic scaling
+            await cur.execute(
+                """SELECT e.id, e.overall_score, COALESCE(j.min_passing_score, 50) as cutoff
+                   FROM evaluations e
+                   JOIN candidates c ON e.candidate_id = c.id
+                   JOIN jobs j ON c.job_id = j.id
+                   WHERE e.overall_score IS NOT NULL"""
+            )
+            eval_rows = await cur.fetchall()
+            for e_id, score, cutoff in eval_rows:
+                if score is not None:
+                    cutoff_val = cutoff if cutoff is not None else 50
+                    if score < cutoff_val:
+                        rec = "Reject"
+                    else:
+                        passing_range = 100 - cutoff_val
+                        if passing_range <= 0:
+                            rec = "Strong Shortlist" if score >= 100 else "Reject"
+                        else:
+                            maybe_limit = cutoff_val + int(round(0.30 * passing_range))
+                            strong_limit = cutoff_val + int(round(0.75 * passing_range))
+                            if score < maybe_limit:
+                                rec = "Maybe"
+                            elif score < strong_limit:
+                                rec = "Shortlist"
+                            else:
+                                rec = "Strong Shortlist"
+                    await cur.execute("UPDATE evaluations SET recommendation = %s WHERE id = %s", (rec, str(e_id)))
+
         await conn.commit()
     finally:
         await conn.close()

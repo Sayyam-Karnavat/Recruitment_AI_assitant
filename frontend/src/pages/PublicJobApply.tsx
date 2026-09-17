@@ -380,8 +380,10 @@ export default function PublicJobApply() {
           <div className="lg:col-span-7 space-y-4">
             <div className="card p-5 sm:p-6 bg-white border border-slate-200 shadow-sm rounded-2xl space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="badge badge-blue text-[11px] py-0.5 px-2">
-                  {job.status === 'active' ? 'Full-Time Position' : job.status.toUpperCase()}
+                <span className={`badge text-[11px] py-0.5 px-2 font-bold ${
+                  job.status === 'active' ? 'badge-blue' : 'bg-rose-100 text-rose-800 border border-rose-200'
+                }`}>
+                  {job.status === 'active' ? 'Full-Time Position' : 'CLOSED'}
                 </span>
                 <span className="badge badge-silver text-[11px] py-0.5 px-2">
                   Target Shortlists: {job.target_shortlist_count}
@@ -440,12 +442,14 @@ export default function PublicJobApply() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {candidateProfile ? (
+                  {job.status === 'closed' && !scorecard ? (
+                    <Lock className="w-3.5 h-3.5 text-rose-500" />
+                  ) : candidateProfile ? (
                     <Sparkles className="w-3.5 h-3.5 text-brand-600" />
                   ) : (
                     <Lock className="w-3.5 h-3.5 text-slate-400" />
                   )}
-                  <span>Apply Now</span>
+                  <span>{job.status === 'closed' && !scorecard ? 'Position Closed' : 'Apply Now'}</span>
                 </button>
                 <button
                   type="button"
@@ -472,38 +476,67 @@ export default function PublicJobApply() {
 
               {/* View 1: When NOT Logged In (Locked Gate) */}
               {!candidateProfile && (
-                <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
-                  <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-100 shadow-xs">
-                    <ShieldCheck className="w-6 h-6 text-brand-600" />
+                job.status === 'closed' && activeTab === 'apply' ? (
+                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                    <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
+                      <Lock className="w-6 h-6 text-rose-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Applications are Closed
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        This job position has been closed by the recruiter and is no longer accepting new applications.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex flex-col items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('leaderboard')}
+                        className="btn btn-secondary text-xs inline-flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                        <span>View Ranked Leaderboard</span>
+                      </button>
+                      <p className="text-[10px] text-slate-400">
+                        Applicants can sign in to view their ranking and standing.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-slate-900">
-                      {activeTab === 'apply' ? 'Sign in with Google to Apply' : 'Sign in to View Leaderboard'}
-                    </h3>
-                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                      {activeTab === 'apply'
-                        ? 'Sign in with Google to unlock resume upload and get instant AI evaluation results.'
-                        : 'Leaderboard rankings are available to authenticated applicants.'}
+                ) : (
+                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-100 shadow-xs">
+                      <ShieldCheck className="w-6 h-6 text-brand-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {activeTab === 'apply' ? 'Sign in with Google to Apply' : 'Sign in to View Leaderboard'}
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        {activeTab === 'apply'
+                          ? 'Sign in with Google to unlock resume upload and get instant AI evaluation results.'
+                          : 'Leaderboard rankings are available to authenticated applicants.'}
+                      </p>
+                    </div>
+                    <div className="flex justify-center pt-1">
+                      <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => setErrorMsg('Google sign-in failed. Please try again.')}
+                        theme="outline"
+                        shape="pill"
+                        text="continue_with"
+                      />
+                    </div>
+                    {errorMsg && (
+                      <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                        {errorMsg}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-400">
+                      🔒 Secure Google OAuth • Resume & leaderboard unlock instantly
                     </p>
                   </div>
-                  <div className="flex justify-center pt-1">
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={() => setErrorMsg('Google sign-in failed. Please try again.')}
-                      theme="outline"
-                      shape="pill"
-                      text="continue_with"
-                    />
-                  </div>
-                  {errorMsg && (
-                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
-                      {errorMsg}
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-400">
-                    🔒 Secure Google OAuth • Resume & leaderboard unlock instantly
-                  </p>
-                </div>
+                )
               )}
 
               {/* View 2: When Logged In -> Apply Tab */}
@@ -521,11 +554,11 @@ export default function PublicJobApply() {
                         scorecard.recommendation === 'Shortlist'
 
                       const isMaybe =
-                        scorecard.recommendation === 'Maybe' ||
-                        (!isShortlisted && scorecard.recommendation !== 'Reject' && scorecard.overall_score !== null && job.min_passing_score ? scorecard.overall_score >= job.min_passing_score : false)
+                        scorecard.recommendation === 'Maybe'
 
                       const isRejected =
                         scorecard.recommendation === 'Reject' ||
+                        scorecard.status === 'failed' ||
                         (!isShortlisted && !isMaybe)
 
                       return (
@@ -641,9 +674,6 @@ export default function PublicJobApply() {
                                   <h4 className="text-sm font-extrabold text-amber-950">
                                     Application in Candidate Lineup
                                   </h4>
-                                  <p className="text-[11px] text-amber-900 leading-relaxed max-w-xs mx-auto font-medium">
-                                    Although your score cleared the minimum passing threshold, it is in the borderline lineup range. You can keep hopes up that you might get contacted as candidate reviews proceed.
-                                  </p>
                                 </div>
                               </div>
                             )}
@@ -680,8 +710,36 @@ export default function PublicJobApply() {
                         Ref: {submittedCandidateId.slice(0, 8)}...
                       </div>
                     </div>
+                  ) : job.status === 'closed' ? (
+                    /* Closed Position Notice for Authenticated Candidate Who Has Not Applied */
+                    <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                      <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
+                        <Lock className="w-6 h-6 text-rose-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Cannot Apply — Position is Closed
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                          This job position has been closed by the recruiter and is no longer accepting new candidate applications.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('leaderboard')
+                            loadLeaderboard()
+                          }}
+                          className="btn btn-primary text-xs py-2 px-4 inline-flex items-center gap-1.5 shadow-md shadow-brand-500/20"
+                        >
+                          <Trophy className="w-3.5 h-3.5" />
+                          <span>View Live Standings on Leaderboard</span>
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    /* Step 2: Upload Resume and Submit Form */
+                    /* Step 2: Upload Resume and Submit Form (Only when job is active) */
                     <form onSubmit={handleSubmit} className="space-y-3.5">
                       {/* Signed-in identity */}
                       <div className="p-2 rounded-xl bg-brand-50/60 border border-brand-200 flex items-center justify-between text-xs">

@@ -156,6 +156,34 @@ async def handle_system_fault(conn, cur, candidate_id: str, user_id: str, reason
         })
 
 
+def compute_proportional_recommendation(score: int, min_passing_score: int = 50) -> str:
+    """
+    Proportional Dynamic Scaling:
+    - Below cutoff: Reject
+    - Lower 30% of passing range [cutoff, 100]: Maybe (Lineup / Potential)
+    - Middle 45% of passing range: Shortlist
+    - Top 25% of passing range: Strong Shortlist
+    """
+    if score is None:
+        return "Reject"
+    cutoff = min_passing_score if min_passing_score is not None else 50
+    if score < cutoff:
+        return "Reject"
+    passing_range = 100 - cutoff
+    if passing_range <= 0:
+        return "Strong Shortlist" if score >= 100 else "Reject"
+
+    maybe_limit = cutoff + int(round(0.30 * passing_range))
+    strong_limit = cutoff + int(round(0.75 * passing_range))
+
+    if score < maybe_limit:
+        return "Maybe"
+    elif score < strong_limit:
+        return "Shortlist"
+    else:
+        return "Strong Shortlist"
+
+
 async def process_single_candidate(
     conn, cur,
     candidate_id: str,
@@ -190,7 +218,7 @@ async def process_single_candidate(
         # User fault: document has no readable text or is corrupted
         await handle_user_fault(
             conn, cur, candidate_id, job_id,
-            reason="Resume contains unreadable or empty content. Please verify document formatting.",
+            reason="File was rejected because it is empty or does not contain readable resume text.",
             batch_progress=batch_progress
         )
         return
@@ -208,11 +236,16 @@ async def process_single_candidate(
         )
         return
 
-    if not profile_data or not profile_data.name:
-        # If extraction returned empty due to nonsensical content
+    if not profile_data or profile_data.is_valid_resume is False or not profile_data.name or (not profile_data.skills and not profile_data.work_experience and not profile_data.education):
+        # User fault: document is a bill, invoice, or non-resume document
+        reason = (
+            profile_data.rejection_reason
+            if (profile_data and profile_data.rejection_reason)
+            else "File was rejected because it was not a valid resume document (e.g. utility bill, invoice, receipt, or non-resume document)."
+        )
         await handle_user_fault(
             conn, cur, candidate_id, job_id,
-            reason="Resume content does not contain recognizable profile data or experience.",
+            reason=reason,
             batch_progress=batch_progress
         )
         return
@@ -277,13 +310,13 @@ async def process_single_candidate(
     min_passing_score = (job_threshold_row[0] if job_threshold_row and job_threshold_row[0] is not None else 50)
 
     final_score = eval_result.overall_score
-    final_recommendation = eval_result.recommendation
+    # Proportional dynamic scaling applied consistently
+    final_recommendation = compute_proportional_recommendation(final_score, min_passing_score)
     final_summary = eval_result.summary or ""
     final_weaknesses = list(eval_result.weaknesses or [])
 
-    # Enforce minimum passing threshold (Auto-Reject)
+    # Enforce minimum passing threshold explanation if below cutoff
     if final_score < min_passing_score:
-        final_recommendation = "Reject"
         rejection_reason = f"Candidate scored {final_score}/100, which is below the employer's minimum required passing threshold of {min_passing_score}/100."
         if not final_summary:
             final_summary = rejection_reason

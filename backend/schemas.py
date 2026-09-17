@@ -138,6 +138,8 @@ class CandidateListItem(BaseModel):
     name: Optional[str] = None
     overall_score: Optional[int] = None
     recommendation: Optional[str] = None
+    error_type: Optional[str] = None
+    error_reason: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -148,6 +150,8 @@ class CandidateDetailResponse(BaseModel):
     id: uuid.UUID
     filename: str
     status: str
+    error_type: Optional[str] = None
+    error_reason: Optional[str] = None
     raw_text: Optional[str] = None
     created_at: datetime
     profile: Optional[CandidateProfileResponse] = None
@@ -217,6 +221,8 @@ class ProjectItem(BaseModel):
 
 class ExtractedProfile(BaseModel):
     """Structured data extracted from a resume by the LLM."""
+    is_valid_resume: bool = Field(True, description="True if document is a valid candidate resume/CV, False if it is a utility bill, invoice, receipt, purchase order, bank statement, or non-resume document")
+    rejection_reason: Optional[str] = Field(None, description="Clear explanation if document is not a valid resume")
     name: Optional[str] = Field(None, description="Full name of the candidate if found")
     email: Optional[str] = Field(None, description="Email address if found")
     phone: Optional[str] = Field(None, description="Phone number if found")
