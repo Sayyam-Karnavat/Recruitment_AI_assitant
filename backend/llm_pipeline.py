@@ -26,16 +26,20 @@ def _invoke_with_fallback(chain_builder, input_data: dict):
     """Try chain across verified models, using structured output parser."""
     last_error = None
 
+    endpoint = (settings.AZURE_OPENAI_ENDPOINT or "").strip().strip('"\'').rstrip('/')
+    api_key = (settings.AZURE_OPENAI_API_KEY or "").strip().strip('"\'')
+
     for deployment_name in FALLBACK_MODELS:
         try:
             llm = AzureChatOpenAI(
-                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-                api_key=settings.AZURE_OPENAI_API_KEY,
+                azure_endpoint=endpoint,
+                api_key=api_key,
                 api_version="2024-12-01-preview",
                 azure_deployment=deployment_name,
                 temperature=0.0,
                 max_retries=1,
                 max_tokens=4096,
+                request_timeout=30.0,
             )
             chain = chain_builder(llm)
             return chain.invoke(input_data)
@@ -44,11 +48,11 @@ def _invoke_with_fallback(chain_builder, input_data: dict):
             error_str = str(e).lower()
 
             if any(kw in error_str for kw in ["rate_limit", "quota", "429", "resource_exhausted"]):
-                logger.warning(f"Deployment '{deployment_name}' rate limited, trying next...")
+                logger.warning(f"Deployment '{deployment_name}' rate limited ({e}), trying next...")
                 continue
             
             if "connection" in error_str or "timeout" in error_str:
-                logger.warning(f"Connection issue on '{deployment_name}', trying next...")
+                logger.warning(f"Connection issue on '{deployment_name}': {e}, trying next...")
                 continue
             
             logger.warning(f"Deployment '{deployment_name}' failed with error: {e}, trying next deployment...")
