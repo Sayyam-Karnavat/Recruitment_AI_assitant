@@ -23,6 +23,8 @@ def create_access_token(user_id: UUID) -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+ALLOWED_EMAILS = {"sanyam.karnavat5@gmail.com"}
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db=Depends(get_db),
@@ -42,6 +44,13 @@ async def get_current_user(
     user = await cur.fetchone()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    email = (user[1] or "").strip().lower()
+    if email not in ALLOWED_EMAILS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted. Only authorized accounts are permitted."
+        )
 
     return {"id": user[0], "email": user[1], "created_at": user[2]}
 
@@ -70,4 +79,11 @@ async def get_api_key_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
         
+    email = (user[1] or "").strip().lower()
+    if email not in ALLOWED_EMAILS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted. Only authorized accounts are permitted."
+        )
+
     return {"id": user[0], "email": user[1], "created_at": user[2]}

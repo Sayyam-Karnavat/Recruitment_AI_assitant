@@ -232,9 +232,21 @@ export default function JobDetail() {
   // Real-time WebSocket connection
   useEffect(() => {
     if (!id) return
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const wsUrl = `${protocol}//${host}/ws/jobs/${id}`
+    let wsUrl: string
+    const apiUrl = import.meta.env.VITE_API_URL
+    if (apiUrl && apiUrl.startsWith('http')) {
+      try {
+        const parsedUrl = new URL(apiUrl)
+        const protocol = parsedUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+        wsUrl = `${protocol}//${parsedUrl.host}/ws/jobs/${id}`
+      } catch {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        wsUrl = `${protocol}//${window.location.host}/ws/jobs/${id}`
+      }
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsUrl = `${protocol}//${window.location.host}/ws/jobs/${id}`
+    }
     let ws: WebSocket | null = null
 
     try {

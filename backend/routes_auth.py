@@ -16,6 +16,8 @@ router = APIRouter()
 class GoogleAuthRequest(BaseModel):
     token: str
 
+ALLOWED_EMAILS = {"sanyam.karnavat5@gmail.com"}
+
 @router.post("/google", response_model=TokenResponse)
 async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
     conn, cur = db
@@ -30,11 +32,19 @@ async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
         logger.error(f"Google token verification failed: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
 
+    email_clean = email.strip().lower()
+    if email_clean not in ALLOWED_EMAILS:
+        logger.warning(f"Unauthorized login attempt blocked for email: {email_clean}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted. The platform is currently restricted to sanyam.karnavat5@gmail.com."
+        )
+
     # Check if user exists
-    await cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    await cur.execute("SELECT id FROM users WHERE email = %s", (email_clean,))
     row = await cur.fetchone()
     
-    is_unlimited_email = (email.lower() == "sanyam.karnavat5@gmail.com")
+    is_unlimited_email = (email_clean == "sanyam.karnavat5@gmail.com")
     
     if row:
         user_id = row[0]
@@ -42,11 +52,11 @@ async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
             await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (user_id,))
             await conn.commit()
     else:
-        # Create new user (grant unlimited credits for sanyam.karnavat5@gmail.com, or 50 default welcome credits)
+        # Create new user (grant unlimited credits for authorized user)
         initial_credits = 999999 if is_unlimited_email else 50
         await cur.execute(
             "INSERT INTO users (email, credits) VALUES (%s, %s) RETURNING id",
-            (email, initial_credits)
+            (email_clean, initial_credits)
         )
         new_row = await cur.fetchone()
         await conn.commit()
