@@ -283,9 +283,13 @@ async def process_single_candidate(
         return
 
     # Candidate is a valid resume
-    # Update candidate basic details
+    # Update candidate basic details (preserve verified applicant account email & name if already set via OAuth)
     await cur.execute(
-        "UPDATE candidates SET status = 'evaluated', candidate_name = %s, candidate_email = %s WHERE id = %s",
+        """UPDATE candidates 
+           SET status = 'evaluated', 
+               candidate_name = COALESCE(candidate_name, %s), 
+               candidate_email = COALESCE(candidate_email, %s) 
+           WHERE id = %s""",
         (screening_result.name, screening_result.email, candidate_id)
     )
 
