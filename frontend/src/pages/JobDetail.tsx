@@ -217,6 +217,27 @@ export default function JobDetail() {
     }
   }
 
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null)
+
+  const handleDeleteCandidate = async (e: React.MouseEvent, candidateId: string, name: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to delete candidate "${name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setDeletingCandidateId(candidateId)
+      await api.delete(`/candidates/${candidateId}`)
+      setCandidates((prev) => prev.filter((c) => c.id !== candidateId))
+      setJob((prev) => (prev ? { ...prev, candidate_count: Math.max(0, (prev.candidate_count || 1) - 1) } : prev))
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to delete candidate.')
+    } finally {
+      setDeletingCandidateId(null)
+    }
+  }
+
   const publicApplyUrl = `${window.location.origin}/careers/${id}`
 
   const copyPublicApplyLink = () => {
@@ -932,9 +953,24 @@ export default function JobDetail() {
                         ) : null}
                       </div>
 
-                      <span className="text-xs font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                        <span>View</span> &rarr;
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                          <span>View</span> &rarr;
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteCandidate(e, c.id, c.name || c.filename)}
+                          disabled={deletingCandidateId === c.id}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors ml-1"
+                          title="Delete candidate record"
+                        >
+                          {deletingCandidateId === c.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </Link>
                 ))}

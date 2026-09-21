@@ -172,3 +172,30 @@ async def submit_candidate_feedback(
         comment=feedback.comment,
         created_at=row[1]
     )
+
+
+@router.delete("/candidates/{candidate_id}", status_code=status.HTTP_200_OK)
+async def delete_candidate(
+    candidate_id: UUID,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Delete a single candidate record and all associated profile and evaluation data."""
+    conn, cur = db
+    # Verify candidate exists and belongs to a job owned by user
+    await cur.execute(
+        """SELECT c.id, c.job_id 
+           FROM candidates c 
+           JOIN jobs j ON c.job_id = j.id 
+           WHERE c.id = %s AND j.user_id = %s""",
+        (str(candidate_id), str(user["id"]))
+    )
+    cand = await cur.fetchone()
+    if not cand:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found or access denied")
+
+    # Delete candidate (cascades to evaluations, candidate_profiles, evaluation_categories, candidate_feedback)
+    await cur.execute("DELETE FROM candidates WHERE id = %s", (str(candidate_id),))
+    await conn.commit()
+
+    return {"success": True, "message": "Candidate deleted successfully", "id": str(candidate_id)}

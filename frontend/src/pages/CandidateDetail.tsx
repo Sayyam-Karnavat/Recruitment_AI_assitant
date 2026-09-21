@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import {
   ChevronLeft, Loader2, Mail, Phone, MapPin, Briefcase,
   Award, CheckCircle2, AlertTriangle, Sparkles, FileText,
-  Flag, ThumbsUp, ThumbsDown, Check, X, GraduationCap, FolderGit2
+  Flag, ThumbsUp, ThumbsDown, Check, X, GraduationCap, FolderGit2, Trash2
 } from 'lucide-react'
 
 interface CategoryScore {
@@ -129,6 +129,25 @@ export default function CandidateDetail() {
       .finally(() => setLoading(false))
   }, [candidateId])
 
+  const navigate = useNavigate()
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDeleteCandidate = async () => {
+    const candName = profile?.name || data?.filename || 'this candidate'
+    if (!window.confirm(`Are you sure you want to permanently delete "${candName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      await api.delete(`/candidates/${candidateId}`)
+      navigate(`/jobs/${jobId}`, { replace: true })
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to delete candidate.')
+      setIsDeleting(false)
+    }
+  }
+
   const submitFeedback = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmittingFeedback(true)
@@ -177,7 +196,7 @@ export default function CandidateDetail() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Top Back Navigation */}
+      {/* Top Back Navigation & Action Bar */}
       <div className="flex items-center justify-between">
         <Link
           to={`/jobs/${jobId}`}
@@ -187,13 +206,25 @@ export default function CandidateDetail() {
           Back to Candidate List
         </Link>
 
-        <button
-          onClick={() => setShowFeedbackModal(true)}
-          className="btn btn-ghost text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1.5"
-        >
-          <Flag className="w-3.5 h-3.5" />
-          Flag Evaluation Result
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="btn btn-ghost text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1.5"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            Flag Evaluation Result
+          </button>
+
+          <button
+            onClick={handleDeleteCandidate}
+            disabled={isDeleting}
+            className="btn btn-ghost text-xs text-red-500 hover:text-red-700 hover:bg-red-50 inline-flex items-center gap-1.5"
+            title="Delete this candidate record"
+          >
+            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            Delete Candidate
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Left Candidate Profile & Right AI Evaluation */}
