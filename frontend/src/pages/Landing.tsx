@@ -269,7 +269,7 @@ export default function Landing() {
             to="/login"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-blue-700 font-bold text-base hover:bg-blue-50 shadow-lg transition-all"
           >
-            Get Started with 50 Free Credits <ArrowRight size={16} />
+            Get Started with 10 Free Credits <ArrowRight size={16} />
           </Link>
         </div>
       </main>

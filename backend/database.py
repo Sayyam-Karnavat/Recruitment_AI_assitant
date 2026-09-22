@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    credits INT DEFAULT 50,
+    credits INT DEFAULT 10,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -160,6 +160,7 @@ async def init_db():
             await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS candidate_name VARCHAR(200);")
             await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_type VARCHAR(50);")
             await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_reason TEXT;")
+            await cur.execute("ALTER TABLE users ALTER COLUMN credits SET DEFAULT 10;")
             
             # Seed admin user if not exists
             await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")

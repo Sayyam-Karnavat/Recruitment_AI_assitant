@@ -109,7 +109,7 @@ export default function Login() {
           {/* Welcome Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold mb-4">
             <Sparkles size={13} />
-            <span>50 Free Welcome Credits on Sign In</span>
+            <span>10 Free Welcome Credits on Sign In</span>
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-slate-900 mb-2">
