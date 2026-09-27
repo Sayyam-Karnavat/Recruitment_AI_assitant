@@ -47,10 +47,10 @@ const features = [
 ]
 
 const stats = [
-  { value: 1000, suffix: '+', label: 'Active Recruiters' },
-  { value: 150000, suffix: '+', label: 'Resumes Evaluated' },
-  { value: 95, suffix: '%', label: 'Screening Accuracy' },
-  { value: 10, suffix: 'x', label: 'Faster Hiring Time' },
+  { value: 99, suffix: '%', label: 'Screening Accuracy' },
+  { value: 10, suffix: 'x', label: 'Faster Hiring Speed' },
+  { prefix: '< ', value: 3, suffix: 's', label: 'Screening Time Per Resume' },
+  { value: 100, suffix: '%', label: 'In-Memory Data Privacy' },
 ]
 
 export default function Landing() {
@@ -76,22 +76,10 @@ export default function Landing() {
 
           <div className="flex items-center gap-3">
             <Link
-              to="/developer-docs"
-              className="text-sm font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 transition-colors hidden sm:inline-block"
-            >
-              API Docs
-            </Link>
-            <Link
               to="/login"
-              className="text-sm font-semibold text-slate-700 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-sm shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-1.5"
             >
-              Sign In
-            </Link>
-            <Link
-              to="/login"
-              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm shadow-blue-500/25 transition-all flex items-center gap-1.5"
-            >
-              Get Started Free <ArrowRight size={14} />
+              Sign In <ArrowRight size={14} />
             </Link>
           </div>
         </div>
@@ -103,7 +91,7 @@ export default function Landing() {
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 shadow-xs mb-8 fade-up">
           <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
           <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
-            Next-Gen Semantic Recruitment AI
+            Autonomous Resume Screening & Shortlisting
           </span>
         </div>
 
@@ -123,7 +111,7 @@ export default function Landing() {
             to="/login"
             className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-2"
           >
-            Start Free Screening (50 Credits)
+            Start Free Screening (10 Credits)
             <ArrowRight size={16} />
           </Link>
           <Link
@@ -156,7 +144,7 @@ export default function Landing() {
             {[
               {
                 rank: '#1',
-                name: 'Ananya Sharma',
+                name: 'Candidate XYZ-01',
                 exp: '6.5 yrs exp',
                 score: 96,
                 match: 'Strong Match',
@@ -165,7 +153,7 @@ export default function Landing() {
               },
               {
                 rank: '#2',
-                name: 'Rohan Mehta',
+                name: 'Candidate XYZ-02',
                 exp: '5.2 yrs exp',
                 score: 91,
                 match: 'Strong Match',
@@ -174,7 +162,7 @@ export default function Landing() {
               },
               {
                 rank: '#3',
-                name: 'Devansh Patel',
+                name: 'Candidate XYZ-03',
                 exp: '4.0 yrs exp',
                 score: 84,
                 match: 'Shortlist',
@@ -217,9 +205,10 @@ export default function Landing() {
 
         {/* Live Counters */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm mb-20 fade-up">
-          {stats.map(({ value, suffix, label }) => (
+          {stats.map(({ prefix, value, suffix, label }) => (
             <div key={label} className="text-center">
               <div className="text-3xl sm:text-4xl font-extrabold text-blue-600 tracking-tight">
+                {prefix || ''}
                 <AnimatedCounter target={value} />
                 {suffix}
               </div>
@@ -275,11 +264,17 @@ export default function Landing() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4">
+      <footer className="relative z-10 border-t border-slate-200 bg-white py-8 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-800">ResumeAI</span>
             <span>— Precision AI Recruitment Intelligence</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-6">
+            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+            <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
+            <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>
           </div>
           <div>© {new Date().getFullYear()} ResumeAI. All rights reserved.</div>
         </div>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -7,6 +7,7 @@ from database import get_db
 from schemas import TokenResponse, UserResponse
 from auth import create_access_token, get_current_user
 from config import settings
+from rate_limiter import check_rate_limit, get_client_ip
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,10 @@ class GoogleAuthRequest(BaseModel):
     token: str
 
 @router.post("/google", response_model=TokenResponse)
-async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
+async def google_auth(body: GoogleAuthRequest, request: Request, db=Depends(get_db)):
+    client_ip = get_client_ip(request)
+    check_rate_limit(f"auth_login:{client_ip}", max_requests=25, window_seconds=60)
+
     conn, cur = db
     try:
         # Verify Google token
@@ -67,4 +71,10 @@ async def google_auth(body: GoogleAuthRequest, db=Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(user=Depends(get_current_user)):
-    return UserResponse(id=user["id"], email=user["email"], created_at=user["created_at"])
+    return UserResponse(
+        id=user["id"],
+        email=user["email"],
+        role=user.get("role", "recruiter"),
+        is_active=user.get("is_active", True),
+        created_at=user["created_at"]
+    )

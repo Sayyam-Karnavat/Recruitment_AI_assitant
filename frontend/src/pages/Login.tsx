@@ -50,8 +50,8 @@ export default function Login() {
             </div>
 
             <div className="mt-4">
-              <h4 className="font-bold text-base text-white">Senior Full-Stack Architect</h4>
-              <p className="text-xs text-slate-300 mt-0.5">Evaluated across 7 semantic dimensions</p>
+              <h4 className="font-bold text-base text-white">Candidate Evaluation Scorecard</h4>
+              <p className="text-xs text-slate-300 mt-0.5">Multi-dimensional qualification criteria assessment</p>
             </div>
 
             <div className="mt-5 space-y-2.5">
@@ -157,11 +157,20 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Back to Home */}
-        <div className="mt-6 text-center">
+        {/* Back to Home & Legal */}
+        <div className="mt-6 text-center space-y-2">
           <Link to="/" className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
             ← Back to Homepage
           </Link>
+          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400">
+            <Link to="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-slate-600 transition-colors">Terms</Link>
+            <span>•</span>
+            <Link to="/refund-policy" className="hover:text-slate-600 transition-colors">Refunds</Link>
+            <span>•</span>
+            <Link to="/contact" className="hover:text-slate-600 transition-colors">Contact</Link>
+          </div>
         </div>
       </div>
     </div>

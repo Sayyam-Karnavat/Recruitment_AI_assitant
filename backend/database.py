@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     credits INT DEFAULT 10,
+    role VARCHAR(20) DEFAULT 'recruiter',
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -139,6 +141,54 @@ CREATE INDEX IF NOT EXISTS idx_candidate_profiles_candidate_id ON candidate_prof
 CREATE INDEX IF NOT EXISTS idx_evaluations_candidate_id ON evaluations(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_evaluation_categories_evaluation_id ON evaluation_categories(evaluation_id);
 CREATE INDEX IF NOT EXISTS idx_upload_batches_job_id ON upload_batches(job_id);
+
+CREATE TABLE IF NOT EXISTS payment_orders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    razorpay_order_id VARCHAR(64) UNIQUE NOT NULL,
+    package_id VARCHAR(32) NOT NULL,
+    credits INTEGER NOT NULL,
+    amount_inr INTEGER NOT NULL,
+    amount_paise INTEGER NOT NULL,
+    payment_type VARCHAR(16) DEFAULT 'onetime',
+    status VARCHAR(16) DEFAULT 'created',
+    razorpay_payment_id VARCHAR(64),
+    razorpay_signature VARCHAR(256),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    razorpay_subscription_id VARCHAR(64) UNIQUE NOT NULL,
+    plan_id VARCHAR(32) NOT NULL,
+    status VARCHAR(16) DEFAULT 'created',
+    credits_per_cycle INTEGER NOT NULL,
+    amount_inr INTEGER NOT NULL,
+    current_period_start TIMESTAMPTZ,
+    current_period_end TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    cancelled_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS payment_mandates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    razorpay_customer_id VARCHAR(64) NOT NULL,
+    razorpay_token_id VARCHAR(64),
+    contact VARCHAR(20),
+    auto_topup_threshold INTEGER DEFAULT 5,
+    auto_topup_package_id VARCHAR(32) NOT NULL DEFAULT 'tier_100',
+    is_active BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_charged_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_user_id ON payment_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_rzp_order ON payment_orders(razorpay_order_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mandates_user_id ON payment_mandates(user_id);
 """
 
 
@@ -150,7 +200,60 @@ async def init_db():
         async with conn.cursor() as cur:
             await cur.execute(SCHEMA)
             
-            # Migrations for existing tables
+            # Payment infrastructure migrations
+            await cur.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_inr NUMERIC(10,2) DEFAULT 0;")
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS payment_orders (
+                    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    razorpay_order_id VARCHAR(64) UNIQUE NOT NULL,
+                    package_id VARCHAR(32) NOT NULL,
+                    credits INTEGER NOT NULL,
+                    amount_inr INTEGER NOT NULL,
+                    amount_paise INTEGER NOT NULL,
+                    payment_type VARCHAR(16) DEFAULT 'onetime',
+                    status VARCHAR(16) DEFAULT 'created',
+                    razorpay_payment_id VARCHAR(64),
+                    razorpay_signature VARCHAR(256),
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+            """)
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    razorpay_subscription_id VARCHAR(64) UNIQUE NOT NULL,
+                    plan_id VARCHAR(32) NOT NULL,
+                    status VARCHAR(16) DEFAULT 'created',
+                    credits_per_cycle INTEGER NOT NULL,
+                    amount_inr INTEGER NOT NULL,
+                    current_period_start TIMESTAMPTZ,
+                    current_period_end TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    cancelled_at TIMESTAMPTZ
+                );
+            """)
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS payment_mandates (
+                    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    razorpay_customer_id VARCHAR(64) NOT NULL,
+                    razorpay_token_id VARCHAR(64),
+                    contact VARCHAR(20),
+                    auto_topup_threshold INTEGER DEFAULT 5,
+                    auto_topup_package_id VARCHAR(32) NOT NULL DEFAULT 'tier_100',
+                    is_active BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    last_charged_at TIMESTAMPTZ
+                );
+            """)
+            await cur.execute("CREATE INDEX IF NOT EXISTS idx_payment_orders_user_id ON payment_orders(user_id);")
+            await cur.execute("CREATE INDEX IF NOT EXISTS idx_payment_orders_rzp_order ON payment_orders(razorpay_order_id);")
+            await cur.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);")
+            await cur.execute("CREATE INDEX IF NOT EXISTS idx_mandates_user_id ON payment_mandates(user_id);")
+
+            # Existing column migrations
             await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS custom_prompt TEXT;")
             await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS webhook_url VARCHAR(500);")
             await cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS active_days_limit INT;")
@@ -161,6 +264,9 @@ async def init_db():
             await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_type VARCHAR(50);")
             await cur.execute("ALTER TABLE candidates ADD COLUMN IF NOT EXISTS error_reason TEXT;")
             await cur.execute("ALTER TABLE users ALTER COLUMN credits SET DEFAULT 10;")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'recruiter';")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
+            await cur.execute("UPDATE users SET role = 'admin' WHERE email IN ('sanyam.karnavat5@gmail.com', 'admin@resumeai.com');")
             
             # Seed admin user if not exists
             await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")

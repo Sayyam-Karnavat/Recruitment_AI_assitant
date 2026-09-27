@@ -94,8 +94,9 @@ CRITICAL RULES:
     ("human", """Job Description:
 {job_description}
 
-Candidate Resume Text:
-{text}""")
+<candidate_resume_data>
+{text}
+</candidate_resume_data>""")
 ])
 
 

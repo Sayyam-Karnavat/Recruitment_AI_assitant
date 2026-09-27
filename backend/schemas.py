@@ -26,6 +26,8 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    role: Optional[str] = "recruiter"
+    is_active: Optional[bool] = True
     created_at: datetime
 
     class Config:
@@ -57,6 +59,7 @@ class JobCreate(BaseModel):
     active_days_limit: Optional[int] = Field(None, description="Days until job auto-closes", ge=1)
     max_applications: Optional[int] = Field(None, description="Max resumes before auto-closing", ge=1)
     min_passing_score: Optional[int] = Field(default=50, description="Minimum score required to pass auto-rejection threshold", ge=1, le=100)
+    webhook_url: Optional[str] = Field(None, description="Optional public HTTPS webhook URL")
 
 
 class JobUpdate(BaseModel):
@@ -68,6 +71,7 @@ class JobUpdate(BaseModel):
     active_days_limit: Optional[int] = None
     max_applications: Optional[int] = None
     min_passing_score: Optional[int] = None
+    webhook_url: Optional[str] = None
 
 
 class JobResponse(BaseModel):
@@ -82,6 +86,7 @@ class JobResponse(BaseModel):
     active_days_limit: Optional[int] = None
     max_applications: Optional[int] = None
     min_passing_score: Optional[int] = 50
+    webhook_url: Optional[str] = None
 
     class Config:
         from_attributes = True

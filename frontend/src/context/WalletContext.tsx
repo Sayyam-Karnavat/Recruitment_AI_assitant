@@ -10,12 +10,41 @@ export interface WalletPackage {
   cost_per_credit: number
 }
 
+export interface SubscriptionPlan {
+  id: string
+  credits_per_cycle: number
+  amount_inr: number
+  label: string
+  available: boolean
+}
+
+export interface ActiveSubscription {
+  plan_id: string
+  status: string
+  credits_per_cycle: number
+  amount_inr: number
+  next_billing: string | null
+}
+
+export interface PaygMandate {
+  package_id: string
+  threshold: number
+  is_active: boolean
+  last_charged_at: string | null
+}
+
 interface WalletContextType {
   credits: number
   isUnlimited: boolean
   userEmail: string
+  role: string
+  isAdmin: boolean
   loading: boolean
   packages: WalletPackage[]
+  subscriptionPlans: SubscriptionPlan[]
+  activeSubscription: ActiveSubscription | null
+  paygMandate: PaygMandate | null
+  razorpayKeyId: string | null
   isMockMode: boolean
   isWalletModalOpen: boolean
   openWalletModal: () => void
@@ -30,7 +59,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [credits, setCredits] = useState<number>(0)
   const [isUnlimited, setIsUnlimited] = useState<boolean>(false)
   const [userEmail, setUserEmail] = useState<string>('')
+  const [role, setRole] = useState<string>('recruiter')
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [packages, setPackages] = useState<WalletPackage[]>([])
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([])
+  const [activeSubscription, setActiveSubscription] = useState<ActiveSubscription | null>(null)
+  const [paygMandate, setPaygMandate] = useState<PaygMandate | null>(null)
+  const [razorpayKeyId, setRazorpayKeyId] = useState<string | null>(null)
   const [isMockMode, setIsMockMode] = useState<boolean>(true)
   const [loading, setLoading] = useState<boolean>(false)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState<boolean>(false)
@@ -42,10 +77,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const res = await api.get('/wallet/balance')
       const email = res.data.email || ''
       const unlimited = Boolean(res.data.is_unlimited || email.toLowerCase() === 'sanyam.karnavat5@gmail.com')
+      const admin = Boolean(res.data.is_admin || res.data.role === 'admin' || email.toLowerCase() === 'sanyam.karnavat5@gmail.com')
       setUserEmail(email)
       setIsUnlimited(unlimited)
+      setRole(res.data.role || 'recruiter')
+      setIsAdmin(admin)
       setCredits(unlimited ? 999999 : (res.data.credits ?? 0))
       if (res.data.packages) setPackages(res.data.packages)
+      if (res.data.subscription_plans) setSubscriptionPlans(res.data.subscription_plans)
+      setActiveSubscription(res.data.active_subscription || null)
+      setPaygMandate(res.data.payg_mandate || null)
+      setRazorpayKeyId(res.data.razorpay_key_id || null)
       if (res.data.is_mock_mode !== undefined) setIsMockMode(res.data.is_mock_mode)
     } catch (err) {
       console.error('Failed to load wallet balance:', err)
@@ -61,6 +103,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setCredits(0)
       setIsUnlimited(false)
       setUserEmail('')
+      setActiveSubscription(null)
+      setPaygMandate(null)
     }
   }, [token, refreshBalance])
 
@@ -70,8 +114,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         credits,
         isUnlimited,
         userEmail,
+        role,
+        isAdmin,
         loading,
         packages,
+        subscriptionPlans,
+        activeSubscription,
+        paygMandate,
+        razorpayKeyId,
         isMockMode,
         isWalletModalOpen,
         openWalletModal: () => setIsWalletModalOpen(true),
@@ -91,3 +141,4 @@ export function useWallet() {
   }
   return context
 }
+

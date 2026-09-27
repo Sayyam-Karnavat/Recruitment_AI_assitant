@@ -1,15 +1,9 @@
-import { useState } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon, ShieldCheck, User, ChevronDown } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
-
-const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Developer APIs', path: '/developer-docs', icon: Code2 },
-  { label: 'Settings', path: '/settings', icon: SettingsIcon },
-]
 
 function LogoMark({ size = 20 }: { size?: number }) {
   return (
@@ -21,10 +15,28 @@ function LogoMark({ size = 20 }: { size?: number }) {
 
 export default function AuthLayout() {
   const { logout } = useAuth()
-  const { credits, isUnlimited, openWalletModal } = useWallet()
+  const { credits, isUnlimited, isAdmin, openWalletModal, userEmail } = useWallet()
   const location = useLocation()
+  const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const navItems = [
+    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ...(isAdmin ? [{ label: 'Admin Portal', path: '/admin', icon: ShieldCheck }] : []),
+  ]
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
@@ -98,19 +110,7 @@ export default function AuthLayout() {
           })}
         </nav>
 
-        {/* User & Logout */}
-        <div className="p-3 border-t border-slate-200/80 flex-shrink-0 bg-slate-50/50">
-          <button
-            onClick={logout}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors ${
-              collapsed ? 'justify-center px-2' : ''
-            }`}
-            aria-label="Log out"
-          >
-            <LogOut size={18} className="text-slate-400 group-hover:text-rose-600" />
-            {!collapsed && <span>Sign Out</span>}
-          </button>
-        </div>
+
       </aside>
 
       {/* ── Mobile drawer overlay ── */}
@@ -174,18 +174,7 @@ export default function AuthLayout() {
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-200 bg-slate-50">
-          <button
-            onClick={() => {
-              setMobileOpen(false)
-              logout()
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-          >
-            <LogOut size={18} className="text-slate-400" />
-            <span>Sign Out</span>
-          </button>
-        </div>
+
       </div>
 
       {/* ── Main Content Area ── */}
@@ -237,6 +226,57 @@ export default function AuthLayout() {
               </>
             )}
           </button>
+
+          {/* Profile Dropdown */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setProfileOpen(!profileOpen)}
+              className="flex items-center gap-2 p-1.5 pl-2.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <span className="text-sm font-medium text-slate-700 hidden sm:block max-w-[120px] truncate">
+                {userEmail ? userEmail.split('@')[0] : 'User'}
+              </span>
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
+                {userEmail ? userEmail.charAt(0).toUpperCase() : <User size={16} />}
+              </div>
+              <ChevronDown size={14} className="text-slate-400 mr-1" />
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-fade-in origin-top-right">
+                <div className="px-4 py-3 border-b border-slate-100 mb-1">
+                  <p className="text-xs font-semibold text-slate-900 truncate">{userEmail}</p>
+                  <p className="text-[10px] text-slate-500">Recruiter Account</p>
+                </div>
+                
+                <button
+                  onClick={() => { setProfileOpen(false); navigate('/settings'); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left"
+                >
+                  <SettingsIcon size={16} className="text-slate-400" />
+                  Settings
+                </button>
+                
+                <button
+                  onClick={() => { setProfileOpen(false); navigate('/developer-docs'); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left"
+                >
+                  <Code2 size={16} className="text-slate-400" />
+                  Developer API
+                </button>
+                
+                <div className="h-px bg-slate-100 my-1 mx-3" />
+                
+                <button
+                  onClick={() => { setProfileOpen(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
+                >
+                  <LogOut size={16} className="text-red-500" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Page content */}

@@ -77,6 +77,13 @@ export default function PublicJobApply() {
   const [hasAlreadyApplied, setHasAlreadyApplied] = useState<boolean>(false)
   const [checkingApplication, setCheckingApplication] = useState<boolean>(false)
   const [avatarError, setAvatarError] = useState<boolean>(false)
+  const [isJobOwner, setIsJobOwner] = useState<boolean>(false)
+  // Track when the google token was issued (ms timestamp) to detect expiry
+  const [tokenIssuedAt, setTokenIssuedAt] = useState<number | null>(() => {
+    const stored = localStorage.getItem('candidate_token_issued_at')
+    return stored ? parseInt(stored, 10) : null
+  })
+  const TOKEN_MAX_AGE_MS = 50 * 60 * 1000 // 50 minutes (Google tokens expire at 60 min)
 
   // Leaderboard State
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([])
@@ -85,26 +92,39 @@ export default function PublicJobApply() {
   useEffect(() => {
     loadJob()
     loadLeaderboard()
+    // Only check existing application on mount if a candidate is already signed in
+    if (candidateProfile?.email || googleToken) {
+      checkExistingApplication(candidateProfile?.email, googleToken)
+    }
   }, [jobId])
 
-  // Check if signed-in candidate has already applied to this position
+  // Check whenever candidate profile or token changes
   useEffect(() => {
-    if (candidateProfile?.email && jobId) {
-      checkExistingApplication(candidateProfile.email, googleToken)
+    if ((candidateProfile?.email || googleToken) && jobId) {
+      checkExistingApplication(candidateProfile?.email, googleToken)
     }
-  }, [candidateProfile?.email, jobId, googleToken])
+  }, [candidateProfile?.email, googleToken, jobId])
 
-  const checkExistingApplication = async (email: string, token?: string | null) => {
-    if (!jobId || !email) return
+  const checkExistingApplication = async (email?: string, token?: string | null) => {
+    if (!jobId) return
+    // NEVER send recruiter_token from the public apply page.
+    // If neither email nor token is available, there is nothing to check.
+    if (!email && !token) return
+
     try {
       setCheckingApplication(true)
       const res = await api.get(`/public/jobs/${jobId}/my-application`, {
         params: {
-          email: email,
+          email: email || undefined,
           google_token: token || undefined
+          // recruiter_token intentionally omitted: public page must never impersonate recruiter
         }
       })
-      if (res.data.has_applied && res.data.application) {
+      if (res.data.is_job_owner) {
+        setIsJobOwner(true)
+        setHasAlreadyApplied(false)
+      } else if (res.data.has_applied && res.data.application) {
+        setIsJobOwner(false)
         setHasAlreadyApplied(true)
         if (res.data.is_processing) {
           setSubmittedCandidateId(res.data.application.candidate_id)
@@ -112,6 +132,7 @@ export default function PublicJobApply() {
           setScorecard(res.data.application)
         }
       } else {
+        setIsJobOwner(false)
         setHasAlreadyApplied(false)
       }
     } catch (err: any) {
@@ -121,6 +142,8 @@ export default function PublicJobApply() {
         localStorage.removeItem('candidate_google_token')
         localStorage.removeItem('candidate_google_profile')
         setErrorMsg('Your Google sign-in session has expired. Please sign in with Google below.')
+      } else if (err.response?.data?.detail) {
+        setErrorMsg(err.response.data.detail)
       }
     } finally {
       setCheckingApplication(false)
@@ -228,8 +251,11 @@ export default function PublicJobApply() {
   const handleGoogleSuccess = (credentialResponse: any) => {
     if (credentialResponse.credential) {
       const token = credentialResponse.credential
+      const now = Date.now()
       setGoogleToken(token)
+      setTokenIssuedAt(now)
       localStorage.setItem('candidate_google_token', token)
+      localStorage.setItem('candidate_token_issued_at', String(now))
 
       const payload = decodeJwtPayload(token)
       if (payload) {
@@ -256,8 +282,10 @@ export default function PublicJobApply() {
     setHasAlreadyApplied(false)
     setAvatarError(false)
     setFile(null)
+    setTokenIssuedAt(null)
     localStorage.removeItem('candidate_google_token')
     localStorage.removeItem('candidate_google_profile')
+    localStorage.removeItem('candidate_token_issued_at')
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,8 +309,15 @@ export default function PublicJobApply() {
     e.preventDefault()
     if (!file || !jobId) return
 
-    if (!googleToken) {
-      setErrorMsg('Please sign in with Google to verify your applicant identity before submitting.')
+    if (!googleToken || !candidateProfile) {
+      setErrorMsg('Please sign in with Google to verify your identity before submitting.')
+      return
+    }
+
+    // Check if the stored Google token is too old (>50 min) — it will be rejected by backend
+    const tokenAge = tokenIssuedAt ? Date.now() - tokenIssuedAt : Infinity
+    if (tokenAge > TOKEN_MAX_AGE_MS) {
+      setErrorMsg('Your Google sign-in session has expired (tokens last 60 minutes). Please sign out and sign in again before submitting.')
       return
     }
 
@@ -300,14 +335,25 @@ export default function PublicJobApply() {
       setSubmittedCandidateId(res.data.candidate_id)
       setHasAlreadyApplied(true)
     } catch (err: any) {
+      const detail = err.response?.data?.detail || ''
       if (err.response?.status === 401) {
+        // Token is expired — force re-sign-in
         setGoogleToken(null)
-        setCandidateProfile(null)
+        setTokenIssuedAt(null)
         localStorage.removeItem('candidate_google_token')
-        localStorage.removeItem('candidate_google_profile')
-        setErrorMsg('Your Google sign-in session has expired. Please sign in with Google below to submit your application.')
+        localStorage.removeItem('candidate_token_issued_at')
+        setErrorMsg('Your Google session expired. Please sign in with Google again below to submit your application.')
+      } else if (err.response?.status === 403) {
+        setIsJobOwner(true)
+        setErrorMsg(detail || 'You are the creator of this job posting and cannot apply to your own job.')
+      } else if (err.response?.status === 400 && detail.toLowerCase().includes('already submitted')) {
+        // Backend caught a duplicate — treat as already applied
+        setHasAlreadyApplied(true)
+        setErrorMsg(null)
+        // Re-check to load scorecard
+        checkExistingApplication(candidateProfile.email, googleToken)
       } else {
-        setErrorMsg(err.response?.data?.detail || 'Failed to submit application. Please try again.')
+        setErrorMsg(detail || 'Failed to submit application. Please try again.')
       }
     } finally {
       setIsSubmitting(false)
@@ -496,84 +542,99 @@ export default function PublicJobApply() {
                 </button>
               </div>
 
-              {/* View 1: When NOT Logged In (Locked Gate) */}
-              {!candidateProfile && (
-                job.status === 'closed' && activeTab === 'apply' ? (
-                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
-                    <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
-                      <Lock className="w-6 h-6 text-rose-600" />
+              {/* Tab 1: Apply Tab */}
+              {activeTab === 'apply' && (
+                checkingApplication ? (
+                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2 animate-fade-in">
+                    <Loader2 className="w-6 h-6 text-brand-600 animate-spin mx-auto" />
+                    <p className="text-xs font-semibold text-slate-600">Checking your application status...</p>
+                  </div>
+                ) : isJobOwner ? (
+                  <div className="p-6 rounded-2xl bg-brand-50/70 border border-brand-200 text-center space-y-3.5 animate-fade-in shadow-sm">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center mx-auto border border-brand-200 shadow-xs">
+                      <Building2 className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
                       <h3 className="text-sm font-bold text-slate-900">
-                        Applications are Closed
+                        You are the Recruiter
                       </h3>
-                      <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                        This job position has been closed by the recruiter and is no longer accepting new applications.
+                      <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+                        You created this job posting. You cannot apply to your own job.
                       </p>
                     </div>
-                    <div className="pt-2 flex flex-col items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('leaderboard')}
-                        className="btn btn-secondary text-xs inline-flex items-center gap-1.5 shadow-xs"
-                      >
-                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                        <span>View Ranked Leaderboard</span>
-                      </button>
-                      <p className="text-[10px] text-slate-400">
-                        Applicants can sign in to view their ranking and standing.
-                      </p>
+                    <div className="pt-2">
+                      <Link to={`/jobs/${jobId}`} className="btn btn-primary text-xs w-full justify-center py-2.5">
+                        Go to Recruiter Dashboard
+                      </Link>
                     </div>
                   </div>
-                ) : (
-                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
-                    <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-100 shadow-xs">
-                      <ShieldCheck className="w-6 h-6 text-brand-600" />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        {activeTab === 'apply' ? 'Sign in with Google to Apply' : 'Sign in to View Leaderboard'}
-                      </h3>
-                      <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                        {activeTab === 'apply'
-                          ? 'Sign in with Google to unlock resume upload and get instant AI evaluation results.'
-                          : 'Leaderboard rankings are available to authenticated applicants.'}
-                      </p>
-                    </div>
-                    <div className="flex justify-center pt-1">
-                      <GoogleLogin
-                        onSuccess={handleGoogleSuccess}
-                        onError={() => setErrorMsg('Google sign-in failed. Please try again.')}
-                        theme="outline"
-                        shape="pill"
-                        text="continue_with"
-                      />
-                    </div>
-                    {errorMsg && (
-                      <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
-                        {errorMsg}
+                ) : !candidateProfile ? (
+                  job.status === 'closed' ? (
+                    <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                      <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
+                        <Lock className="w-6 h-6 text-rose-600" />
                       </div>
-                    )}
-                    <p className="text-[10px] text-slate-400">
-                      🔒 Secure Google OAuth • Resume & leaderboard unlock instantly
-                    </p>
-                  </div>
-                )
-              )}
-
-              {/* View 2: When Logged In -> Apply Tab */}
-              {candidateProfile && activeTab === 'apply' && (
-                <div className="space-y-3.5">
-                  {checkingApplication ? (
-                    <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2 animate-fade-in">
-                      <Loader2 className="w-6 h-6 text-brand-600 animate-spin mx-auto" />
-                      <p className="text-xs font-semibold text-slate-600">Checking your application status...</p>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Applications are Closed
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                          This job position has been closed by the recruiter and is no longer accepting new applications.
+                        </p>
+                      </div>
+                      <div className="pt-2 flex flex-col items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('leaderboard')}
+                          className="btn btn-secondary text-xs inline-flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                          <span>View Ranked Leaderboard</span>
+                        </button>
+                        <p className="text-[10px] text-slate-400">
+                          Applicants can sign in to view their ranking and standing.
+                        </p>
+                      </div>
                     </div>
-                  ) : scorecard ? (
-                    (() => {
-                      const isShortlisted =
-                        scorecard.recommendation === 'Strong Shortlist' ||
-                        scorecard.recommendation === 'Shortlist'
+                  ) : (
+                    <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                      <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-100 shadow-xs">
+                        <ShieldCheck className="w-6 h-6 text-brand-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Sign in with Google to Apply
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                          Sign in with Google to unlock resume upload and get instant AI evaluation results.
+                        </p>
+                      </div>
+                      <div className="flex justify-center pt-1">
+                        <GoogleLogin
+                          onSuccess={handleGoogleSuccess}
+                          onError={() => setErrorMsg('Google sign-in failed. Please try again.')}
+                          theme="outline"
+                          shape="pill"
+                          text="continue_with"
+                        />
+                      </div>
+                      {errorMsg && (
+                        <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                          {errorMsg}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-slate-400">
+                        🔒 Secure Google OAuth • Resume & leaderboard unlock instantly
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="space-y-3.5">
+                    {scorecard ? (
+                      (() => {
+                        const isShortlisted =
+                          scorecard.recommendation === 'Strong Shortlist' ||
+                          scorecard.recommendation === 'Shortlist'
 
                       const isMaybe =
                         scorecard.recommendation === 'Maybe'
@@ -716,8 +777,8 @@ export default function PublicJobApply() {
                         </div>
                       )
                     })()
-                  ) : submittedCandidateId ? (
-                    /* In-Progress Evaluation Loader */
+                  ) : submittedCandidateId || hasAlreadyApplied ? (
+                    /* In-Progress Evaluation Loader — also shown when hasAlreadyApplied but scorecard not yet loaded */
                     <div className="p-6 rounded-2xl bg-brand-50/70 border border-brand-200 text-center space-y-2.5 animate-fade-in">
                       <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
                       <div className="space-y-0.5">
@@ -728,9 +789,11 @@ export default function PublicJobApply() {
                           Extracting skills and calculating match against requirements.
                         </p>
                       </div>
-                      <div className="font-mono text-[10px] text-slate-600 bg-white p-1 rounded border border-brand-200 inline-block">
-                        Ref: {submittedCandidateId.slice(0, 8)}...
-                      </div>
+                      {submittedCandidateId && (
+                        <div className="font-mono text-[10px] text-slate-600 bg-white p-1 rounded border border-brand-200 inline-block">
+                          Ref: {submittedCandidateId.slice(0, 8)}...
+                        </div>
+                      )}
                     </div>
                   ) : job.status === 'closed' ? (
                     /* Closed Position Notice for Authenticated Candidate Who Has Not Applied */
@@ -838,6 +901,14 @@ export default function PublicJobApply() {
                         )}
                       </div>
 
+                      {/* Token expiry warning */}
+                      {tokenIssuedAt && (Date.now() - tokenIssuedAt) > (40 * 60 * 1000) && (
+                        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 text-xs text-amber-800 font-medium animate-fade-in">
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                          <span>Your sign-in session is expiring soon. Sign out and sign in again before submitting.</span>
+                        </div>
+                      )}
+
                       {errorMsg && (
                         <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-xs text-red-700 font-medium animate-fade-in">
                           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-500" />
@@ -848,7 +919,7 @@ export default function PublicJobApply() {
                       {/* Single Primary Submit Button */}
                       <button
                         type="submit"
-                        disabled={!file || isSubmitting}
+                        disabled={!file || isSubmitting || (tokenIssuedAt ? (Date.now() - tokenIssuedAt) > TOKEN_MAX_AGE_MS : false)}
                         className="btn btn-primary w-full py-2.5 text-xs font-bold shadow-md shadow-brand-500/20"
                       >
                         {isSubmitting ? (
@@ -866,88 +937,121 @@ export default function PublicJobApply() {
                     </form>
                   )}
                 </div>
-              )}
+              ))}
 
-              {/* View 3: When Logged In -> Leaderboard Tab (Scrollable) */}
-              {candidateProfile && activeTab === 'leaderboard' && (
-                <div className="space-y-3 animate-fade-in">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-900">Ranked Applicants</span>
-                    <span className="text-[11px] font-mono text-slate-400">{leaderboard.length} Screened</span>
+              {/* Tab 2: Leaderboard Tab */}
+              {activeTab === 'leaderboard' && (
+                !candidateProfile ? (
+                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3.5 animate-fade-in">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto border border-brand-100 shadow-xs">
+                      <ShieldCheck className="w-6 h-6 text-brand-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Sign in to View Leaderboard
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        Leaderboard rankings are available to authenticated applicants.
+                      </p>
+                    </div>
+                    <div className="flex justify-center pt-1">
+                      <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => setErrorMsg('Google sign-in failed. Please try again.')}
+                        theme="outline"
+                        shape="pill"
+                        text="continue_with"
+                      />
+                    </div>
+                    {errorMsg && (
+                      <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                        {errorMsg}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-400">
+                      🔒 Secure Google OAuth • Resume & leaderboard unlock instantly
+                    </p>
                   </div>
+                ) : (
+                  <div className="space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="text-xs font-bold text-slate-900">Ranked Applicants</span>
+                      <span className="text-[11px] font-mono text-slate-400">{leaderboard.length} Screened</span>
+                    </div>
 
-                  {loadingLeaderboard ? (
-                    <div className="py-6 text-center text-xs text-slate-400 space-y-2">
-                      <Loader2 className="w-5 h-5 animate-spin mx-auto text-brand-600" />
-                      <p>Loading leaderboard rankings...</p>
-                    </div>
-                  ) : leaderboard.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-400 space-y-1">
-                      <p className="font-semibold text-slate-600">No applicants ranked yet.</p>
-                      <p>Be the first candidate to apply!</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100 max-h-[300px] sm:max-h-[340px] overflow-y-auto pr-1">
-                      {leaderboard.map((item) => {
-                        const isMe = item.candidate_id === scorecard?.candidate_id || item.candidate_id === submittedCandidateId
-                        return (
-                          <div
-                            key={item.candidate_id}
-                            className={`py-2 flex items-center justify-between gap-2.5 text-xs transition-colors ${
-                              isMe ? 'bg-brand-50/70 border border-brand-200/80 rounded-xl px-2.5 my-1 shadow-xs' : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`w-5 h-5 rounded-full font-bold font-mono flex items-center justify-center text-[10px] flex-shrink-0 ${
-                                item.rank === 1
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  : item.rank === 2
-                                  ? 'bg-slate-200 text-slate-700'
-                                  : item.rank === 3
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : isMe
-                                  ? 'bg-brand-600 text-white'
-                                  : 'bg-slate-100 text-slate-500'
-                              }`}>
-                                #{item.rank}
-                              </span>
-                              <div className="truncate">
-                                <p className="font-bold text-slate-900 truncate text-xs flex items-center gap-1">
-                                  <span>{item.name}</span>
-                                  {isMe && (
-                                    <span className="text-[9px] bg-brand-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">
-                                      You
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="text-[10px] text-slate-400">
-                                  {item.applied_at ? new Date(item.applied_at).toLocaleDateString() : ''}
-                                </p>
+                    {loadingLeaderboard ? (
+                      <div className="py-6 text-center text-xs text-slate-400 space-y-2">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto text-brand-600" />
+                        <p>Loading leaderboard rankings...</p>
+                      </div>
+                    ) : leaderboard.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-400 space-y-1">
+                        <p className="font-semibold text-slate-600">No applicants ranked yet.</p>
+                        <p>Be the first candidate to apply!</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 max-h-[300px] sm:max-h-[340px] overflow-y-auto pr-1">
+                        {leaderboard.map((item) => {
+                          const isMe = item.candidate_id === scorecard?.candidate_id || item.candidate_id === submittedCandidateId
+                          return (
+                            <div
+                              key={item.candidate_id}
+                              className={`py-2 flex items-center justify-between gap-2.5 text-xs transition-colors ${
+                                isMe ? 'bg-brand-50/70 border border-brand-200/80 rounded-xl px-2.5 my-1 shadow-xs' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-5 h-5 rounded-full font-bold font-mono flex items-center justify-center text-[10px] flex-shrink-0 ${
+                                  item.rank === 1
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : item.rank === 2
+                                    ? 'bg-slate-200 text-slate-700'
+                                    : item.rank === 3
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : isMe
+                                    ? 'bg-brand-600 text-white'
+                                    : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                  #{item.rank}
+                                </span>
+                                <div className="truncate">
+                                  <p className="font-bold text-slate-900 truncate text-xs flex items-center gap-1">
+                                    <span>{item.name}</span>
+                                    {isMe && (
+                                      <span className="text-[9px] bg-brand-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                                        You
+                                      </span>
+                                    )}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    {item.applied_at ? new Date(item.applied_at).toLocaleDateString() : ''}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <span className={`badge text-[9px] py-0.5 px-1.5 ${
+                                  item.recommendation === 'Strong Shortlist'
+                                    ? 'badge-strong'
+                                    : item.recommendation === 'Shortlist'
+                                    ? 'badge-shortlist'
+                                    : item.recommendation === 'Maybe'
+                                    ? 'badge-maybe'
+                                    : 'badge-reject'
+                                }`}>
+                                  {item.recommendation === 'Strong Shortlist' ? 'Strong' : item.recommendation}
+                                </span>
+                                <span className="font-mono font-bold text-slate-900 text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                  {item.overall_score}%
+                                </span>
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span className={`badge text-[9px] py-0.5 px-1.5 ${
-                                item.recommendation === 'Strong Shortlist'
-                                  ? 'badge-strong'
-                                  : item.recommendation === 'Shortlist'
-                                  ? 'badge-shortlist'
-                                  : item.recommendation === 'Maybe'
-                                  ? 'badge-maybe'
-                                  : 'badge-reject'
-                              }`}>
-                                {item.recommendation === 'Strong Shortlist' ? 'Strong' : item.recommendation}
-                              </span>
-                              <span className="font-mono font-bold text-slate-900 text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                                {item.overall_score}%
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -955,9 +1059,17 @@ export default function PublicJobApply() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-8 py-4 border-t border-slate-200 text-center text-xs text-slate-400 space-y-0.5">
-        <p>© 2026 ResumeAI Recruitment Engine. All rights reserved.</p>
-        <p className="text-[11px]">Powered by High-Performance LLM Candidate Screening</p>
+      <footer className="mt-8 py-6 border-t border-slate-200 text-center text-xs text-slate-500 space-y-2">
+        <div className="flex items-center justify-center gap-4 text-xs">
+          <Link to="/privacy" target="_blank" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+          <span>•</span>
+          <Link to="/terms" target="_blank" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+          <span>•</span>
+          <Link to="/refund-policy" target="_blank" className="hover:text-blue-600 transition-colors">Refunds</Link>
+          <span>•</span>
+          <Link to="/contact" target="_blank" className="hover:text-blue-600 transition-colors">Contact Us</Link>
+        </div>
+        <p className="text-[11px] text-slate-400">© 2026 ResumeAI Recruitment Engine. Powered by Enterprise LLM Semantic Screening.</p>
       </footer>
     </div>
   )

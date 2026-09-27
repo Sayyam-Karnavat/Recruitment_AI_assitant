@@ -1,31 +1,53 @@
-.venv
-__pycache__
+# Virtual Environments & Caches
+.venv/
+__pycache__/
+backend/__pycache__/
+*.pyc
+
+# Environment & Secrets (NEVER COMMIT CREDENTIALS)
 .env
+.env.*
+.env.local
+*.env
+backend/.env
+frontend/.env.local
+
+# Documents & Upload Artifacts
 *.pdf
 *.docx
-Production/uploads/
 *.zip
+Production/uploads/
+uploads/
+
+# Databases & Analytics
 *.db
 *.db-shm
 *.db-wal
+*.sqlite3
 *.parquet
 *.csv
 *.arrow
+
+# Models & Weights
 AI_Model/
+Screening-AI/Hugging_Face/*
 *.bin
-*.sqlite3
 *.pkl
-*.jinja
 *.safetensors
 *.model
+
+# Logs & Locks
+*.log
 *.lock
 *.incomplete
-*.log
-Screening-AI/Hugging_Face/*
 
-# Production specific
-backend/__pycache__/
-backend/alembic/versions/*.py
+# Node & Frontend Build
 frontend/node_modules/
 frontend/dist/
-.vscode
+frontend/.vite/
+
+# IDE & OS Specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

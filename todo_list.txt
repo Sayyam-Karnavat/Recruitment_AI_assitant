@@ -1,0 +1,63 @@
+================================================================================
+                    RESUMEAI MASTER PRODUCTION GO-LIVE CHECKLIST
+================================================================================
+
+[x] PHASE 1: LEGAL & COMPLIANCE (PREREQUISITE FOR RAZORPAY LIVE APPROVAL)
+  [x] 1.1 Create Privacy Policy page (/privacy) with PII retention details
+  [x] 1.2 Create Terms of Service page (/terms)
+  [x] 1.3 Create Refund & Cancellation Policy page (/refund-policy)
+  [x] 1.4 Create Contact Us / Support page (/contact)
+  [x] 1.5 Add footer links on Landing.tsx, Login.tsx, and PublicJobApply.tsx
+
+[x] PHASE 2: PAYMENT GATEWAY HARDENING & TOKEN-OPTIMIZED PRICING
+  [x] 2.1 Update wallet packages in backend & frontend to competitive ~₹0.50-₹0.75 pricing
+  [x] 2.2 Implement Razorpay Webhook endpoint POST /api/wallet/webhook with HMAC SHA256
+  [x] 2.3 Ensure atomic idempotency on payment events (prevent duplicate credit top-ups)
+  [x] 2.4 Add downloadable/printable transaction receipts in recruiter wallet drawer
+
+[x] PHASE 3: PRODUCTION SECURITY & API HARDENING
+  [x] 3.1 Fix CORS in main.py: replace allow_origins=["*"] with explicit trusted domains
+  [x] 3.2 Add IP-based in-memory rate limiting on public apply and auth endpoints
+  [x] 3.3 Validate job webhook_url against SSRF (block private RFC1918 / localhost / cloud metadata)
+  [x] 3.4 Sanitize file uploads and detect scanned/empty image PDFs with descriptive guidance
+
+[x] PHASE 4: QUEUING & SCALABILITY EVALUATION
+  [x] 4.1 Evaluate Redis vs AWS SQS / GCP PubSub (Upstash free serverless Redis selected as best & cheapest)
+  [x] 4.2 Verify Redis async connection pooling and queue worker resilience
+  [x] 4.3 Configure database connection pool max connections and shutdown safety
+
+[x] PHASE 5: DEVELOPER APIs (/v1) & ADMIN OPERATIONS DASHBOARD
+  [x] 5.1 Implement full /v1 Developer API suite:
+        - GET /v1/jobs (list jobs)
+        - GET /v1/jobs/{job_id} (job detail)
+        - GET /v1/jobs/{job_id}/candidates (candidate rankings)
+        - GET /v1/wallet/balance (credit check)
+        - GET /v1/jobs/{job_id}/batch/{batch_id} (batch progress)
+  [x] 5.2 Implement Admin Role & Database schema (role, is_active on users)
+  [x] 5.3 Implement Admin Backend routes (/api/admin/metrics, /api/admin/users, credit adjustment)
+  [x] 5.4 Build Admin Frontend Dashboard (/admin) with live token cost, margins, user management
+  [x] 5.5 Add Admin navigation guard and link in header
+
+[x] PHASE 6: AUTOMATED TESTING, VERIFICATION & CLEANUP
+  [x] 6.1 Write end-to-end test suite for security, APIs, webhooks, and limits
+  [x] 6.2 Trigger automated browser subagent to test UI flows end-to-end
+  [x] 6.3 Verify zero TypeScript/Python syntax errors and complete documentation
+
+[x] PHASE 7: CLOUD STORAGE CONNECTORS & CRITICAL AUDIT FIXES
+  [x] 7.1 Fix payment mock order bypass in routes_wallet.py (prevent unpaid credit exploit)
+  [x] 7.2 Implement SSRF protection in url_downloader.py (block localhost, private IPs, cloud metadata)
+  [x] 7.3 Isolate resume prompt injection with <candidate_resume_data> delimiters in llm_pipeline.py
+  [x] 7.4 Prevent unauthenticated candidate scorecard enumeration in routes_public.py
+  [x] 7.5 Build CloudDriveModal.tsx with native Google Drive & OneDrive picker integration
+  [x] 7.6 Implement POST /jobs/{job_id}/import-cloud-storage with zero disk footprint
+  [x] 7.7 Replace raw textbox in JobDetail.tsx with unified Cloud Storage Connectors card
+
+[x] PHASE 8: SANITY CHECKS, DATABASE MIGRATION SCRIPTS & CLEANUP
+  [x] 8.1 Fixed missing 'import json' in routes_public.py
+  [x] 8.2 Fixed missing 'from pathlib import Path' in routes_upload.py
+  [x] 8.3 Cleaned temporary test scripts (test_production_readiness.py, test_llm.py)
+  [x] 8.4 Created backend/db_migration/download_and_sync.py for backing up Render DB to local PostgreSQL
+  [x] 8.5 Created backend/db_migration/upload_and_sync.py for restoring local backup to new Render DB
+================================================================================
+
+

@@ -3,22 +3,26 @@ Public job board, candidate application with Google OAuth identity gate,
 and public candidate leaderboard endpoints.
 """
 
+import json
 from uuid import UUID
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, status
 from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from jose import jwt
 import logging
 
 from database import get_db
 from config import settings
 from file_parser import compute_file_hash, is_valid_resume_file, validate_resume_bytes, extract_text_from_bytes
 from queue_manager import enqueue_batch_task
+from rate_limiter import check_rate_limit, get_client_ip
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
 
 class PublicJobResponse(BaseModel):
     id: UUID
@@ -163,15 +167,22 @@ async def get_candidate_status(candidate_id: UUID, db=Depends(get_db)):
 @router.get("/jobs/{job_id}/my-application")
 async def get_my_application(
     job_id: UUID,
+    request: Request,
     email: Optional[str] = None,
     google_token: Optional[str] = None,
+    recruiter_token: Optional[str] = None,
     db=Depends(get_db)
 ):
     """
     Check if a candidate has already applied to this specific job.
     Returns their status and scorecard so returning candidates cannot re-apply.
+    Also identifies if the current requester is the recruiter/owner of this job.
     """
+    conn, cur = db
+
+    # 1. Extract and verify candidate identity if google_token or email is provided
     candidate_email: Optional[str] = None
+    is_verified_session = False
 
     if google_token:
         try:
@@ -179,32 +190,68 @@ async def get_my_application(
                 google_token, requests.Request(), settings.GOOGLE_CLIENT_ID
             )
             candidate_email = idinfo.get("email")
+            is_verified_session = True
         except Exception:
-            pass
+            raise HTTPException(status_code=401, detail="Invalid or expired Google Token")
 
     if not candidate_email and email:
-        candidate_email = email.strip().lower()
+        candidate_email = email
 
-    if not candidate_email:
-        return {"has_applied": False, "is_processing": False, "application": None}
+    if candidate_email:
+        candidate_email = candidate_email.strip().lower()
 
-    conn, cur = db
-    await cur.execute(
-        """SELECT c.id, c.status, 
-                  COALESCE(cp.prof_name, c.candidate_name) as name,
-                  e.overall_score, e.recommendation, e.summary, e.strengths, e.weaknesses,
-                  c.created_at, c.error_type, c.error_reason
-           FROM candidates c
-           LEFT JOIN evaluations e ON e.candidate_id = c.id
-           LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
-           WHERE c.job_id = %s AND LOWER(c.candidate_email) = LOWER(%s)
-           ORDER BY c.created_at DESC
-           LIMIT 1""",
-        (str(job_id), candidate_email)
-    )
-    row = await cur.fetchone()
-    if not row:
-        return {"has_applied": False, "is_processing": False, "application": None}
+    # Fetch the job creator's email to verify ownership
+    await cur.execute("SELECT u.email FROM jobs j JOIN users u ON j.user_id = u.id WHERE j.id = %s", (str(job_id),))
+    owner_row = await cur.fetchone()
+    owner_email = owner_row[0].strip().lower() if owner_row and owner_row[0] else None
+
+    # Scenario A: Candidate has signed in with a Google account
+    if candidate_email:
+        logger.info(f"[/my-application] Candidate identity: {candidate_email} (Job owner: {owner_email})")
+        # If this candidate's email matches the job owner's email, they are the owner!
+        if owner_email and candidate_email == owner_email:
+            logger.info(f"[/my-application] Identified job owner via Google email ({candidate_email}) for job {job_id}")
+            return {"has_applied": False, "is_processing": False, "application": None, "is_job_owner": True}
+
+        # Otherwise, candidate_email is an applicant. Check if they already applied
+        await cur.execute(
+            """SELECT c.id, c.status, 
+                      COALESCE(cp.prof_name, c.candidate_name) as name,
+                      e.overall_score, e.recommendation, e.summary, e.strengths, e.weaknesses,
+                      c.created_at, c.error_type, c.error_reason
+               FROM candidates c
+               LEFT JOIN evaluations e ON e.candidate_id = c.id
+               LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
+               WHERE c.job_id = %s AND (LOWER(TRIM(c.candidate_email)) = %s OR LOWER(TRIM(cp.prof_email)) = %s)
+               ORDER BY c.created_at DESC
+               LIMIT 1""",
+            (str(job_id), candidate_email, candidate_email)
+        )
+        row = await cur.fetchone()
+        if not row:
+            logger.info(f"[/my-application] No previous application found for {candidate_email} on job {job_id}")
+            return {"has_applied": False, "is_processing": False, "application": None, "is_job_owner": False}
+
+        logger.info(f"[/my-application] Found existing application for {candidate_email}: candidate_id={row[0]}, status={row[1]}")
+
+    # Scenario B: User has NOT signed in with Google as a candidate yet.
+    # Check if they are the recruiter previewing their own job (via recruiter dashboard token)
+    else:
+        auth_header = request.headers.get("authorization")
+        jwt_candidate = recruiter_token or (auth_header.split(" ")[1] if auth_header and auth_header.startswith("Bearer ") else None)
+        if jwt_candidate:
+            try:
+                payload = jwt.decode(jwt_candidate, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+                recruiter_user_id = payload.get("sub")
+                if recruiter_user_id:
+                    await cur.execute("SELECT id FROM jobs WHERE id = %s AND user_id = %s", (str(job_id), str(recruiter_user_id)))
+                    if await cur.fetchone():
+                        logger.info(f"[/my-application] Unauthenticated view: requester is recruiter viewing job {job_id}")
+                        return {"has_applied": False, "is_processing": False, "application": None, "is_job_owner": True}
+            except Exception:
+                pass
+
+        return {"has_applied": False, "is_processing": False, "application": None, "is_job_owner": False}
 
     c_id = str(row[0])
     c_status = row[1]
@@ -217,6 +264,26 @@ async def get_my_application(
             "is_processing": False,
             "application": None,
             "system_fault_retry_allowed": True
+        }
+
+    # If unverified email query parameter, only return basic status without leaking full AI dossier
+    if not is_verified_session:
+        return {
+            "has_applied": True,
+            "is_processing": (c_status in ["pending", "processing"]),
+            "applied_at": row[8].isoformat() if row[8] else None,
+            "application": {
+                "candidate_id": c_id,
+                "status": c_status,
+                "name": row[2],
+                "overall_score": None,
+                "recommendation": None,
+                "summary": "Sign in with your Google account to view your evaluation details.",
+                "strengths": None,
+                "weaknesses": None,
+                "error_type": row[9],
+                "error_reason": row[10]
+            }
         }
 
     strengths = parse_json_list(row[6])
@@ -244,14 +311,20 @@ async def get_my_application(
 @router.post("/jobs/{job_id}/apply")
 async def apply_to_job(
     job_id: UUID,
+    request: Request,
     file: UploadFile = File(...),
     google_token: Optional[str] = Form(None),
+    recruiter_token: Optional[str] = Form(None),
     db=Depends(get_db)
 ):
     """
     Public candidate submission: upload resume for AI screening.
     Enforces Google OAuth verification to strictly prevent repeat duplicate spam.
+    Includes IP rate-limiting to prevent credit drain attacks.
     """
+    client_ip = get_client_ip(request)
+    check_rate_limit(f"public_apply:{client_ip}", max_requests=10, window_seconds=600)
+
     conn, cur = db
 
     # 1. Verify job exists and is active
@@ -274,6 +347,11 @@ async def apply_to_job(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This job posting is currently closed and no longer accepting applications."
         )
+
+    # Fetch recruiter email to prevent self-application
+    await cur.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+    recruiter_row = await cur.fetchone()
+    recruiter_email = recruiter_row[0].strip().lower() if recruiter_row and recruiter_row[0] else None
 
     # 2. Verify Google OAuth token for applicant (mandatory identity check)
     if not google_token:
@@ -307,6 +385,14 @@ async def apply_to_job(
             detail="No verified email address found in Google account."
         )
 
+    candidate_email = candidate_email.strip().lower()
+
+    if recruiter_email and candidate_email == recruiter_email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are the creator of this job posting and cannot apply to your own job."
+        )
+
     # Store/update candidate in candidate_users table
     await cur.execute(
         """INSERT INTO candidate_users (email, name, picture, google_id)
@@ -320,10 +406,11 @@ async def apply_to_job(
 
     # Prevent repeat duplicate applications: check if candidate already applied to this job with this email
     await cur.execute(
-        """SELECT id, status, error_type FROM candidates 
-           WHERE job_id = %s AND LOWER(candidate_email) = LOWER(%s)
-           ORDER BY created_at DESC LIMIT 1""",
-        (str(job_id), candidate_email)
+        """SELECT c.id, c.status, c.error_type FROM candidates c
+           LEFT JOIN candidate_profiles cp ON cp.candidate_id = c.id
+           WHERE c.job_id = %s AND (LOWER(TRIM(c.candidate_email)) = %s OR LOWER(TRIM(cp.prof_email)) = %s)
+           ORDER BY c.created_at DESC LIMIT 1""",
+        (str(job_id), candidate_email, candidate_email)
     )
     existing_cand = await cur.fetchone()
     if existing_cand:
@@ -368,6 +455,11 @@ async def apply_to_job(
             )
 
     raw_text = extract_text_from_bytes(raw_bytes, filename)
+    if not raw_text or len(raw_text.strip()) < 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scanned image PDF detected — no selectable text found. Please upload a text-based PDF or Word document so the AI can evaluate your resume."
+        )
 
     # 4. Check employer credits & deduct 1 credit if available
     await cur.execute("SELECT credits, email FROM users WHERE id = %s", (user_id,))

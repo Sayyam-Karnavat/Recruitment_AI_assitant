@@ -1,5 +1,6 @@
 from uuid import UUID
 from typing import Optional
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, status
 from pydantic import BaseModel
@@ -22,6 +23,18 @@ router = APIRouter()
 
 class UploadLinksRequest(BaseModel):
     urls: list[str]
+
+
+class CloudFileItem(BaseModel):
+    id: Optional[str] = None
+    name: str
+    download_url: Optional[str] = None
+    source: str  # 'google' | 'onedrive'
+
+
+class ImportCloudStorageRequest(BaseModel):
+    files: list[CloudFileItem]
+    google_access_token: Optional[str] = None
 
 
 @router.post("/{job_id}/upload", response_model=UploadResponse)
@@ -79,6 +92,9 @@ async def upload_resumes(
                     continue
 
                 text = extract_text_from_bytes(item_bytes, name)
+                if not text or len(text.strip()) < 50:
+                    invalid_items.append((name, f_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
+                    continue
                 items_to_process.append((name, f_hash, text))
 
         else:
@@ -101,6 +117,9 @@ async def upload_resumes(
                 continue
 
             text = extract_text_from_bytes(raw_bytes, filename)
+            if not text or len(text.strip()) < 50:
+                invalid_items.append((filename, f_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
+                continue
             items_to_process.append((filename, f_hash, text))
 
     if not items_to_process and not invalid_items:
@@ -238,6 +257,9 @@ async def upload_links(
                         continue
 
                     text = extract_text_from_bytes(item_bytes, name)
+                    if not text or len(text.strip()) < 50:
+                        invalid_items.append((name, item_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
+                        continue
                     items_to_process.append((name, item_hash, text))
 
             elif is_valid_resume_file(filename):
@@ -247,6 +269,9 @@ async def upload_links(
                     continue
 
                 text = extract_text_from_bytes(raw_bytes, filename)
+                if not text or len(text.strip()) < 50:
+                    invalid_items.append((filename, f_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
+                    continue
                 items_to_process.append((filename, f_hash, text))
             else:
                 ext = Path(filename).suffix or "unknown"
@@ -332,6 +357,179 @@ async def upload_links(
         )
 
     return UploadResponse(batch_id=batch_row[0], total_files=total_batch_count, message="Processing links started")
+
+
+@router.post("/{job_id}/import-cloud-storage", response_model=UploadResponse)
+async def import_cloud_storage(
+    job_id: UUID,
+    req: ImportCloudStorageRequest,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """
+    Ingest resumes selected via Google Drive Picker or Microsoft OneDrive Picker.
+    Streams files in-memory without server disk retention.
+    """
+    conn, cur = db
+    await cur.execute(
+        "SELECT id, title, description, custom_prompt FROM jobs WHERE id = %s AND user_id = %s",
+        (str(job_id), str(user["id"]))
+    )
+    job_row = await cur.fetchone()
+    if not job_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    job_title = job_row[1]
+    job_description = job_row[2]
+    custom_prompt = job_row[3]
+
+    items_to_process: list[tuple[str, str, str]] = []
+    invalid_items: list[tuple[str, str, str]] = []
+
+    for item in req.files:
+        filename = item.name or "cloud_resume"
+        raw_bytes: bytes | None = None
+        custom_headers = None
+
+        try:
+            if item.source == "google":
+                if not item.id:
+                    invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing Google Drive file ID."))
+                    continue
+                if not req.google_access_token:
+                    invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing Google authorization token."))
+                    continue
+                url = f"https://www.googleapis.com/drive/v3/files/{item.id}?alt=media"
+                custom_headers = {"Authorization": f"Bearer {req.google_access_token}"}
+                raw_bytes, _ = await download_file_from_url(url, custom_headers=custom_headers)
+            elif item.source == "onedrive":
+                if not item.download_url:
+                    invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing OneDrive download URL."))
+                    continue
+                raw_bytes, _ = await download_file_from_url(item.download_url)
+            else:
+                invalid_items.append((filename, compute_file_hash(filename.encode()), f"Unsupported storage provider: '{item.source}'"))
+                continue
+
+            if not raw_bytes:
+                invalid_items.append((filename, compute_file_hash(filename.encode()), "Downloaded empty file content."))
+                continue
+
+            f_hash = compute_file_hash(raw_bytes)
+            await cur.execute(
+                "SELECT id FROM candidates WHERE job_id = %s AND file_hash = %s",
+                (str(job_id), f_hash)
+            )
+            if await cur.fetchone():
+                continue
+
+            if is_zip_file(filename):
+                extracted_items = extract_files_from_zip_in_memory(raw_bytes)
+                for name, item_bytes in extracted_items:
+                    item_hash = compute_file_hash(item_bytes)
+                    is_valid, err_msg = validate_resume_bytes(item_bytes, name)
+                    if not is_valid:
+                        invalid_items.append((name, item_hash, err_msg))
+                        continue
+                    text = extract_text_from_bytes(item_bytes, name)
+                    if not text or len(text.strip()) < 50:
+                        invalid_items.append((name, item_hash, "Scanned image PDF detected — no selectable text found."))
+                        continue
+                    items_to_process.append((name, item_hash, text))
+            elif is_valid_resume_file(filename):
+                is_valid, err_msg = validate_resume_bytes(raw_bytes, filename)
+                if not is_valid:
+                    invalid_items.append((filename, f_hash, err_msg))
+                    continue
+                text = extract_text_from_bytes(raw_bytes, filename)
+                if not text or len(text.strip()) < 50:
+                    invalid_items.append((filename, f_hash, "Scanned image PDF detected — no selectable text found."))
+                    continue
+                items_to_process.append((filename, f_hash, text))
+            else:
+                invalid_items.append((filename, f_hash, f"File format not supported. Only PDF, DOCX, and ZIP batches are supported."))
+        except Exception as e:
+            invalid_items.append((filename, compute_file_hash(filename.encode()), f"Failed to ingest cloud file: {str(e)}"))
+            continue
+
+    if not items_to_process and not invalid_items:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No new or valid resume files found from the selected cloud files.")
+
+    num_resumes = len(items_to_process)
+    user_email = (user.get("email") or "").lower()
+    is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
+
+    if num_resumes > 0 and not is_unlimited:
+        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
+        user_row = await cur.fetchone()
+        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+
+        if current_credits < num_resumes:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+            )
+
+    candidate_ids = []
+    for filename, f_hash, text in items_to_process:
+        await cur.execute(
+            """INSERT INTO candidates (job_id, file_hash, filename, file_path, raw_text, status)
+               VALUES (%s, %s, %s, NULL, %s, 'pending') RETURNING id""",
+            (str(job_id), f_hash, filename, text)
+        )
+        row = await cur.fetchone()
+        candidate_ids.append(str(row[0]))
+
+    for filename, f_hash, reason in invalid_items:
+        await cur.execute(
+            """INSERT INTO candidates (job_id, file_hash, filename, file_path, raw_text, status, error_type, error_reason)
+               VALUES (%s, %s, %s, NULL, NULL, 'failed', 'user_fault', %s) RETURNING id""",
+            (str(job_id), f_hash, filename, reason)
+        )
+
+    total_batch_count = len(candidate_ids) + len(invalid_items)
+    await cur.execute(
+        """INSERT INTO upload_batches (job_id, total_files, processed_files, status)
+           VALUES (%s, %s, %s, %s) RETURNING id""",
+        (str(job_id), total_batch_count, len(invalid_items), 'processing' if candidate_ids else 'completed')
+    )
+    batch_row = await cur.fetchone()
+    batch_id = str(batch_row[0])
+
+    if num_resumes > 0:
+        if not is_unlimited:
+            await cur.execute(
+                "UPDATE users SET credits = credits - %s WHERE id = %s",
+                (num_resumes, str(user["id"]))
+            )
+            await cur.execute(
+                """INSERT INTO transactions
+                   (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+                   VALUES (%s, %s, 0, 'deduction', 'success', %s, %s)""",
+                (
+                    str(user["id"]),
+                    -num_resumes,
+                    batch_id,
+                    f"Cloud Storage Ingestion ({num_resumes} files) for '{job_title}'"
+                )
+            )
+        else:
+            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
+
+    await conn.commit()
+
+    if candidate_ids:
+        await enqueue_batch_task(
+            batch_id=batch_id,
+            candidate_ids=candidate_ids,
+            job_id=str(job_id),
+            user_id=str(user["id"]),
+            job_description=job_description,
+            custom_prompt=custom_prompt
+        )
+
+    return UploadResponse(batch_id=batch_row[0], total_files=total_batch_count, message="Cloud storage processing started")
 
 
 @router.get("/{job_id}/batch/{batch_id}", response_model=BatchStatusResponse)

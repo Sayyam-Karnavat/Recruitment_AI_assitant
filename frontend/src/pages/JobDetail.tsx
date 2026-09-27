@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronUp, Pencil, AlertTriangle
 } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
+import { CloudDriveModal } from '../components/CloudDriveModal'
 
 interface Job {
   id: string
@@ -71,6 +72,7 @@ export default function JobDetail() {
   const [batchProgress, setBatchProgress] = useState({ processed: 0, total: 0 })
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [urlInput, setUrlInput] = useState('')
+  const [showCloudModal, setShowCloudModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [copiedLink, setCopiedLink] = useState(false)
@@ -550,12 +552,12 @@ export default function JobDetail() {
               </span>
               {job?.active_days_limit && (
                 <span className="badge badge-silver">
-                  Window: {job.active_days_limit} Days
+                  Duration: {job.active_days_limit} Days
                 </span>
               )}
               {job?.max_applications && (
                 <span className="badge badge-silver">
-                  Cap: {job.max_applications} Apps
+                  Limit: {job.max_applications} Apps
                 </span>
               )}
               <span className="text-xs text-slate-400">
@@ -586,9 +588,22 @@ export default function JobDetail() {
             </div>
 
             {job?.custom_prompt && (
-              <div className="inline-flex items-center gap-2 p-2.5 px-3 rounded-lg bg-brand-50/60 border border-brand-100 text-xs text-brand-900 font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
-                <span><strong>Special AI Evaluation Criteria:</strong> {job.custom_prompt}</span>
+              <div className="mt-4 bg-gradient-to-r from-brand-50/80 to-purple-50/80 border border-brand-200/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-brand-500 to-purple-500"></div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm border border-brand-100 mt-0.5">
+                    <Sparkles className="w-4 h-4 text-brand-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-slate-800 mb-1.5 flex items-center gap-2">
+                      Special Evaluation Criteria
+                      <span className="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 text-[10px] uppercase font-bold tracking-wider">Active</span>
+                    </h4>
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                      {job.custom_prompt}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -794,31 +809,82 @@ export default function JobDetail() {
             )}
           </div>
 
-          {/* URL / Cloud Drive Ingestion */}
+          {/* Cloud Storage Connector & Link Ingestion */}
           {!isClosed && (
-            <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-brand-600" />
-                Ingest from Cloud Links (Google Drive, OneDrive, Dropbox, or Direct URLs)
-              </h3>
-              <form onSubmit={handleUrlSubmit} className="flex gap-3">
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Paste public PDF URLs or cloud storage links (comma separated)"
-                  className="field flex-1 text-xs"
-                  disabled={uploading}
-                />
+            <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <UploadCloud className="w-4 h-4 text-brand-600" />
+                    Cloud Storage Connectors
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Connect your enterprise or personal cloud drives to browse folders and pick candidate resumes directly.
+                  </p>
+                </div>
                 <button
-                  type="submit"
-                  disabled={uploading || !urlInput.trim()}
-                  className="btn btn-primary text-xs px-5"
+                  type="button"
+                  onClick={() => setShowCloudModal(true)}
+                  disabled={uploading}
+                  className="btn btn-primary text-xs px-4 py-2.5 flex items-center justify-center gap-2.5 shadow-xs whitespace-nowrap shrink-0"
                 >
-                  Fetch & Screen Links
+                  <div className="flex items-center -space-x-1">
+                    <img
+                      src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png"
+                      alt="Drive"
+                      className="w-4 h-4 object-contain rounded-full bg-white ring-1 ring-white"
+                    />
+                    <img
+                      src="https://spoprod-a.akamaihd.net/files/fabric/assets/brand-icons/product/svg/onedrive_48x1.svg"
+                      alt="OneDrive"
+                      className="w-4 h-4 object-contain rounded-full bg-white ring-1 ring-white"
+                    />
+                  </div>
+                  <span>Connect Google Drive & OneDrive</span>
                 </button>
-              </form>
+              </div>
+
+              {/* Quick direct links form */}
+              <div className="space-y-2 pt-1">
+                <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
+                  Quick Import via Public Link
+                </span>
+                <form onSubmit={handleUrlSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="Paste public PDF URLs, Google Drive, or OneDrive share links (comma separated)"
+                    className="field flex-1 text-xs"
+                    disabled={uploading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={uploading || !urlInput.trim()}
+                    className="btn btn-secondary text-xs px-4"
+                  >
+                    Fetch Link
+                  </button>
+                </form>
+              </div>
             </div>
+          )}
+
+          {/* Cloud Storage Picker Modal */}
+          {showCloudModal && id && (
+            <CloudDriveModal
+              jobId={id}
+              isOpen={showCloudModal}
+              onClose={() => setShowCloudModal(false)}
+              onSuccess={(bId, total) => {
+                setBatchId(bId)
+                setBatchProgress({ processed: 0, total })
+                refreshBalance()
+                setActiveTab('candidates')
+                fetchCandidates()
+                fetchJob()
+              }}
+            />
           )}
         </div>
       )}

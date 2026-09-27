@@ -38,12 +38,19 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    await cur.execute("SELECT id, email, created_at FROM users WHERE id = %s", (user_id,))
+    await cur.execute(
+        "SELECT id, email, created_at, COALESCE(role, 'recruiter'), COALESCE(is_active, TRUE) FROM users WHERE id = %s",
+        (user_id,)
+    )
     user = await cur.fetchone()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    return {"id": user[0], "email": user[1], "created_at": user[2]}
+    if not user[4]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account has been suspended. Please contact support.")
+
+    return {"id": user[0], "email": user[1], "created_at": user[2], "role": user[3], "is_active": user[4]}
+
 
 async def get_api_key_user(
     api_key_header: str = Depends(api_key_header),
@@ -62,7 +69,8 @@ async def get_api_key_user(
     conn, cur = db
     
     await cur.execute(
-        "SELECT u.id, u.email, u.created_at FROM api_keys a JOIN users u ON a.user_id = u.id WHERE a.api_key_hash = %s", 
+        """SELECT u.id, u.email, u.created_at, COALESCE(u.role, 'recruiter'), COALESCE(u.is_active, TRUE)
+           FROM api_keys a JOIN users u ON a.user_id = u.id WHERE a.api_key_hash = %s""", 
         (hashed_key,)
     )
     user = await cur.fetchone()
@@ -70,4 +78,17 @@ async def get_api_key_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
-    return {"id": user[0], "email": user[1], "created_at": user[2]}
+    if not user[4]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account has been suspended.")
+
+    return {"id": user[0], "email": user[1], "created_at": user[2], "role": user[3], "is_active": user[4]}
+
+
+async def verify_admin_user(user=Depends(get_current_user)) -> dict:
+    """Dependency that ensures the authenticated user has 'admin' privileges."""
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrative privileges required to access this endpoint."
+        )
+    return user

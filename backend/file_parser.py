@@ -15,7 +15,7 @@ from docx import Document
 
 MAX_ZIP_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_FILES_IN_ZIP = 100
-MAX_SINGLE_FILE_SIZE = 5 * 1024 * 1024  # 5MB limit
+MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
 MAX_PAGE_COUNT = 10
 ALLOWED_EXTENSIONS = {".pdf", ".docx"}
 
@@ -96,7 +96,7 @@ def validate_resume_bytes(data_bytes: bytes, filename: str) -> tuple[bool, str]:
     """
     if len(data_bytes) > MAX_SINGLE_FILE_SIZE:
         size_mb = len(data_bytes) / (1024 * 1024)
-        return False, f"File '{filename}' exceeds maximum allowed size of 5MB ({size_mb:.1f}MB)."
+        return False, f"File '{filename}' exceeds maximum allowed size of 10MB ({size_mb:.1f}MB)."
 
     ext = Path(filename).suffix.lower()
     if ext == ".pdf":
