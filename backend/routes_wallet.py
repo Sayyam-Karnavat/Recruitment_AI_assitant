@@ -36,7 +36,7 @@ router = APIRouter()
 # Credit packages — single source of truth (never trust client-sent amounts)
 # ---------------------------------------------------------------------------
 PACKAGES = {
-    "tier_100":   {"credits": 100,   "amount_inr": 1,    "label": "Starter Pack (100 Resumes)"},
+    "tier_100":   {"credits": 100,   "amount_inr": 79,   "label": "Starter Pack (100 Resumes)"},
     "tier_500":   {"credits": 500,   "amount_inr": 349,  "label": "Growth Pack (500 Resumes)"},
     "tier_2000":  {"credits": 2000,  "amount_inr": 1199, "label": "Agency Pro (2,000 Resumes)"},
     "tier_10000": {"credits": 10000, "amount_inr": 4999, "label": "Enterprise (10,000 Resumes)"},
