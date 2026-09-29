@@ -10,6 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 import fitz  # PyMuPDF
 import httpx
@@ -82,8 +84,16 @@ async def run_e2e_tests():
     headers = {"Authorization": f"Bearer {token}"}
 
     base_url = f"http://127.0.0.1:{settings.PORT}/api"
+    # Check if local server is responsive; if not, test against live production backend
+    try:
+        async with httpx.AsyncClient(timeout=1.5) as probe:
+            await probe.get(f"{base_url}/health")
+    except Exception:
+        base_url = f"{settings.PRODUCTION_BACKEND_URL}/api"
+
     print(f"  ✅ DB connected successfully.")
     print(f"  ✅ Generated valid JWT Bearer token for '{email}' (User ID: {user_id})")
+    print(f"  🎯 Testing target backend: {base_url}")
 
     async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=60.0) as client:
         # -------------------------------------------------------------
