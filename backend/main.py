@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 
-app = FastAPI(title="Resume Shortlisting Platform", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Uppshot Platform API", version="1.0.0", lifespan=lifespan)
 
 trusted_origins = [
     "http://localhost:5173",
@@ -46,16 +46,23 @@ trusted_origins = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
+    "https://uppshot.com",
+    "https://www.uppshot.com",
+    "https://api.uppshot.com",
+    "https://recruitment-ai-assitant.vercel.app",
     "https://recruitment-ai-assitant-bvqcv4f6s-sanyam-karnavats-projects.vercel.app",
     "https://recruitment-ai-assitant-2n4r.onrender.com",
 ]
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in trusted_origins:
-    trusted_origins.append(settings.FRONTEND_URL)
+if settings.FRONTEND_URL:
+    for url in settings.FRONTEND_URL.split(","):
+        cleaned = url.strip()
+        if cleaned and cleaned not in trusted_origins:
+            trusted_origins.append(cleaned)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=trusted_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com|.*\.uppshot\.com|uppshot\.com)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -84,11 +84,27 @@ async def get_api_key_user(
     return {"id": user[0], "email": user[1], "created_at": user[2], "role": user[3], "is_active": user[4]}
 
 
-async def verify_admin_user(user=Depends(get_current_user)) -> dict:
-    """Dependency that ensures the authenticated user has 'admin' privileges."""
-    if user.get("role") != "admin":
+async def verify_admin_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """Dependency that ensures the request contains a valid, dedicated Admin Portal token."""
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        role = payload.get("role")
+        if role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Administrative privileges required to access this endpoint."
+            )
+        return {
+            "id": payload.get("sub", "admin-root"),
+            "role": "admin",
+            "username": payload.get("username", settings.ADMIN_USERNAME)
+        }
+    except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrative privileges required to access this endpoint."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired admin session. Please log in to Admin Portal."
         )
-    return user
+

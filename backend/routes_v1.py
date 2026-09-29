@@ -1,6 +1,6 @@
 """
 Developer API v1 (API-Key Authenticated).
-Provides programmatic endpoints for integrating ATS/CRM systems with ResumeAI.
+Provides programmatic endpoints for integrating ATS/CRM systems with Uppshot.
 """
 
 import uuid

@@ -51,7 +51,7 @@ def generate_real_resume_pdf(name: str, role: str, experience_text: str) -> byte
 
 async def run_e2e_tests():
     print("=" * 70)
-    print("🚀 STARTING FULL RECRUITMENT AI ASSISTANT END-TO-END TEST SUITE")
+    print("🚀 STARTING UPPSHOT PLATFORM END-TO-END TEST SUITE")
     print("=" * 70)
 
     # -------------------------------------------------------------
@@ -268,8 +268,43 @@ async def run_e2e_tests():
         if not evaluated_all:
             print("  ⚠️ Polling timed out (LLM took longer than 50s or backend worker is processing slowly).")
 
+        # -------------------------------------------------------------
+        # 10. DEDICATED ADMIN PORTAL AUTHENTICATION & ISOLATION
+        # -------------------------------------------------------------
+        print("\n[Test 10/10] 🔐 Testing Dedicated Admin Portal Authentication & Isolation...")
+
+        # 10a: Bad credentials rejected
+        bad_admin_res = await client.post("/admin/login", json={"username": "admin", "password": "wrong_password_123"})
+        assert bad_admin_res.status_code == 401, f"Expected 401 on bad admin login, got {bad_admin_res.status_code}"
+        print("  ✅ Unauthorized admin login properly rejected (HTTP 401).")
+
+        # 10b: Regular user token rejected on admin metrics
+        user_metrics_res = await client.get("/admin/metrics")
+        assert user_metrics_res.status_code == 403, f"Expected 403 when regular user accesses admin metrics, got {user_metrics_res.status_code}"
+        print("  ✅ Regular user Bearer token blocked from admin endpoints (HTTP 403 Forbidden).")
+
+        # 10c: Valid admin login with .env credentials
+        good_admin_res = await client.post("/admin/login", json={
+            "username": settings.ADMIN_USERNAME,
+            "password": settings.ADMIN_PASSWORD
+        })
+        assert good_admin_res.status_code == 200, f"Failed admin login: {good_admin_res.text}"
+        admin_auth_data = good_admin_res.json()
+        admin_token = admin_auth_data["access_token"]
+        print(f"  ✅ Dedicated Admin login succeeded with .env credentials. Role: {admin_auth_data.get('role')}")
+
+        # 10d: Access admin metrics using dedicated admin token
+        admin_client_headers = {"Authorization": f"Bearer {admin_token}"}
+        async with httpx.AsyncClient(base_url=base_url, headers=admin_client_headers, timeout=30.0) as admin_client:
+            admin_metrics_res = await admin_client.get("/admin/metrics")
+            assert admin_metrics_res.status_code == 200, f"Admin metrics failed with admin token: {admin_metrics_res.text}"
+            metrics_data = admin_metrics_res.json()
+            total_rev = metrics_data.get("financials", {}).get("total_revenue_inr", 0)
+            total_rec = metrics_data.get("overview", {}).get("total_recruiters", 0)
+            print(f"  ✅ Admin Telemetry verified: Total Recruiters: {total_rec}, Total Revenue: INR {total_rev}")
+
     print("\n" + "=" * 70)
-    print("🎉 ALL 9 COMPREHENSIVE END-TO-END TEST CASES FINISHED SUCCESSFULLY!")
+    print("🎉 ALL 10 COMPREHENSIVE END-TO-END TEST CASES FINISHED SUCCESSFULLY!")
     print("=" * 70)
 
 

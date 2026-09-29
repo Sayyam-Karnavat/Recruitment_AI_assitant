@@ -1,5 +1,5 @@
 ================================================================================
-                    RESUMEAI MASTER PRODUCTION GO-LIVE CHECKLIST
+                    UPPSHOT MASTER PRODUCTION GO-LIVE CHECKLIST
 ================================================================================
 
 [x] PHASE 1: LEGAL & COMPLIANCE (PREREQUISITE FOR RAZORPAY LIVE APPROVAL)

@@ -103,7 +103,7 @@ export default function WalletModal() {
       if (!await loadRazorpayScript()) throw new Error('Failed to load payment SDK.')
       const rzp = new window.Razorpay({
         key: ord.key_id, amount: ord.amount, currency: ord.currency,
-        name: 'ResumeAI Platform', description: ord.description, order_id: ord.order_id,
+        name: 'Uppshot Platform', description: ord.description, order_id: ord.order_id,
         handler: async (res: any) => {
           try {
             const { data } = await api.post('/wallet/verify-payment', {
@@ -132,7 +132,7 @@ export default function WalletModal() {
       if (!await loadRazorpayScript()) throw new Error('Failed to load payment SDK.')
       const rzp = new window.Razorpay({
         key: subData.key_id, subscription_id: subData.subscription_id,
-        name: 'ResumeAI Platform', description: subData.label,
+        name: 'Uppshot Platform', description: subData.label,
         handler: async () => {
           setSubSuccess(`🎉 Subscribed to ${subData.label}! Credits added on first charge via webhook.`)
           await refreshBalance(); setSubProcessing(false)
@@ -163,7 +163,7 @@ export default function WalletModal() {
       const rzp = new window.Razorpay({
         key: ord.key_id, amount: ord.amount, currency: ord.currency,
         order_id: ord.order_id, customer_id: ord.customer_id, recurring: 1,
-        name: 'ResumeAI — Auto Top-Up Setup',
+        name: 'Uppshot — Auto Top-Up Setup',
         description: `Save card for auto-recharge when credits < ${ord.threshold}`,
         handler: async (res: any) => {
           try {

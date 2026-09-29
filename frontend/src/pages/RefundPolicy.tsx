@@ -12,9 +12,9 @@ export default function RefundPolicy() {
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-slate-900 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-              R
+              U
             </div>
-            <span>Resume<span className="text-blue-600">AI</span></span>
+            <span>Upp<span className="text-blue-600">shot</span></span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
             <ArrowLeft size={14} /> Back to Home
@@ -42,7 +42,7 @@ export default function RefundPolicy() {
               <CheckCircle2 className="w-4 h-4 text-emerald-600" /> 1. Unused Credits Refund Guarantee
             </h2>
             <p>
-              We stand behind the quality and precision of ResumeAI. If you purchase any credit package and find that the platform does not meet your hiring workflow requirements, you are eligible for a <strong>pro-rated refund on all completely unconsumed credits within 7 days</strong> of your payment date.
+              We stand behind the quality and precision of Uppshot. If you purchase any credit package and find that the platform does not meet your hiring workflow requirements, you are eligible for a <strong>pro-rated refund on all completely unconsumed credits within 7 days</strong> of your payment date.
             </p>
           </section>
 
@@ -69,7 +69,7 @@ export default function RefundPolicy() {
               <HelpCircle className="w-4 h-4 text-blue-600" /> 4. How to Request a Refund
             </h2>
             <p>
-              To initiate a refund for unconsumed wallet credits, simply email our billing team at <strong>support@resumeai.io</strong> or <strong>sanyam.karnavat5@gmail.com</strong> with:
+              To initiate a refund for unconsumed wallet credits, simply email our billing team at <strong>support@uppshot.com</strong> or <strong>sanyam.karnavat5@gmail.com</strong> with:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600">
               <li>Your registered account email address</li>

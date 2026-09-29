@@ -70,7 +70,7 @@ export default function Landing() {
               <Sparkles size={16} />
             </div>
             <span className="font-bold text-lg tracking-tight text-slate-900">
-              Resume<span className="text-blue-600">AI</span>
+              Upp<span className="text-blue-600">shot</span>
             </span>
           </Link>
 
@@ -267,7 +267,7 @@ export default function Landing() {
       <footer className="relative z-10 border-t border-slate-200 bg-white py-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">ResumeAI</span>
+            <span className="font-bold text-slate-800">Uppshot</span>
             <span>— Precision AI Recruitment Intelligence</span>
           </div>
           <div className="flex flex-wrap items-center gap-6">
@@ -276,7 +276,7 @@ export default function Landing() {
             <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
             <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>
           </div>
-          <div>© {new Date().getFullYear()} ResumeAI. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} Uppshot. All rights reserved.</div>
         </div>
       </footer>
     </div>

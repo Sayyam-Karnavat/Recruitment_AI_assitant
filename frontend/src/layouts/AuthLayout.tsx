@@ -15,7 +15,7 @@ function LogoMark({ size = 20 }: { size?: number }) {
 
 export default function AuthLayout() {
   const { logout } = useAuth()
-  const { credits, isUnlimited, isAdmin, openWalletModal, userEmail } = useWallet()
+  const { credits, isUnlimited, openWalletModal, userEmail } = useWallet()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -35,7 +35,6 @@ export default function AuthLayout() {
 
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    ...(isAdmin ? [{ label: 'Admin Portal', path: '/admin', icon: ShieldCheck }] : []),
   ]
 
   const isActive = (path: string) =>
@@ -56,12 +55,12 @@ export default function AuthLayout() {
             <Link
               to="/dashboard"
               className="flex items-center gap-2.5 text-decoration-none overflow-hidden"
-              aria-label="ResumeAI home"
+              aria-label="Uppshot home"
             >
               <LogoMark size={20} />
               <div className="flex flex-col">
                 <span className="font-bold text-base tracking-tight text-slate-900 leading-tight">
-                  Resume<span className="text-blue-600">AI</span>
+                  Upp<span className="text-blue-600">shot</span>
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   Recruiter Studio
@@ -137,7 +136,7 @@ export default function AuthLayout() {
             <LogoMark size={20} />
             <div className="flex flex-col">
               <span className="font-bold text-base tracking-tight text-slate-900 leading-tight">
-                Resume<span className="text-blue-600">AI</span>
+                Upp<span className="text-blue-600">shot</span>
               </span>
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                 Recruiter Studio

@@ -35,7 +35,7 @@ export default function Login() {
             <Sparkles size={18} />
           </div>
           <span className="font-extrabold text-xl tracking-tight text-white">
-            Resume<span className="text-blue-400">AI</span>
+            Upp<span className="text-blue-400">shot</span>
           </span>
         </div>
 
@@ -101,7 +101,7 @@ export default function Login() {
             <Sparkles size={16} />
           </div>
           <span className="font-bold text-lg text-slate-900">
-            Resume<span className="text-blue-600">AI</span>
+            Upp<span className="text-blue-600">shot</span>
           </span>
         </div>
 
@@ -113,7 +113,7 @@ export default function Login() {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-slate-900 mb-2">
-            Sign In to ResumeAI
+            Sign In to Uppshot
           </h1>
           <p className="text-sm text-slate-600 mb-8">
             Access your recruiter studio, manage active jobs, and review AI rankings.

@@ -12,9 +12,9 @@ export default function PrivacyPolicy() {
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-slate-900 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-              R
+              U
             </div>
-            <span>Resume<span className="text-blue-600">AI</span></span>
+            <span>Upp<span className="text-blue-600">shot</span></span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
             <ArrowLeft size={14} /> Back to Home
@@ -42,7 +42,7 @@ export default function PrivacyPolicy() {
               <Eye className="w-4 h-4 text-blue-600" /> 1. Overview & Information We Collect
             </h2>
             <p>
-              ResumeAI ("we", "our", or "us") provides AI-powered resume screening, applicant evaluation, and candidate ranking solutions for employers and hiring teams. This Privacy Policy outlines how we collect, process, and safeguard personal data when recruiters and job applicants use our platform.
+              Uppshot ("we", "our", or "us") provides AI-powered resume screening, applicant evaluation, and candidate ranking solutions for employers and hiring teams. This Privacy Policy outlines how we collect, process, and safeguard personal data when recruiters and job applicants use our platform.
             </p>
             <p>We collect the following categories of information:</p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
               <Lock className="w-4 h-4 text-blue-600" /> 3. Payment & Financial Data
             </h2>
             <p>
-              ResumeAI does not store debit card numbers, credit card CVVs, or net banking passwords. All billing and wallet top-ups are processed directly by our RBI-licensed payment gateway partner, <strong>Razorpay Software Private Limited</strong>. Payment records stored on our servers are limited to transaction identifiers, credit amounts, and timestamp audit logs.
+              Uppshot does not store debit card numbers, credit card CVVs, or net banking passwords. All billing and wallet top-ups are processed directly by our RBI-licensed payment gateway partner, <strong>Razorpay Software Private Limited</strong>. Payment records stored on our servers are limited to transaction identifiers, credit amounts, and timestamp audit logs.
             </p>
           </section>
 
@@ -89,7 +89,7 @@ export default function PrivacyPolicy() {
             <p>
               For privacy inquiries, data deletion requests, or questions regarding this policy, please reach out to our Data Protection Officer at:
               <br />
-              <strong>Email:</strong> support@resumeai.io / sanyam.karnavat5@gmail.com
+              <strong>Email:</strong> support@uppshot.com / sanyam.karnavat5@gmail.com
             </p>
           </section>
         </div>

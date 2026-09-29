@@ -5,7 +5,6 @@ import {
   Briefcase, FileText, ArrowUpRight, Lock, Award
 } from 'lucide-react'
 import api from '../services/api'
-import { useWallet } from '../context/WalletContext'
 
 interface MetricsData {
   overview: {
@@ -49,7 +48,6 @@ interface AdminUser {
 }
 
 export default function AdminDashboard() {
-  const { isAdmin, userEmail } = useWallet()
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -321,7 +319,7 @@ export default function AdminDashboard() {
                 </tr>
               ) : (
                 filteredUsers.map((u) => {
-                  const isSuperadmin = u.email === 'sanyam.karnavat5@gmail.com' || u.email === 'admin@resumeai.com'
+                  const isSuperadmin = u.email === 'sanyam.karnavat5@gmail.com' || u.email === 'admin@uppshot.com' || u.email === 'admin@resumeai.com'
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="py-3.5 px-5">

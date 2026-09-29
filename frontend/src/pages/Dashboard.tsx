@@ -261,7 +261,7 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            Recruitment Dashboard
+            Uppshot Dashboard
           </h1>
           <p className="text-sm text-slate-600 mt-1">
             Manage your open jobs, share application links, and review AI screening shortlists.

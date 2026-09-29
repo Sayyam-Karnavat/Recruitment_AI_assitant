@@ -4,14 +4,23 @@ Protected by verify_admin_user dependency (Role-Based Access Control).
 """
 
 import uuid
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from jose import jwt
 
+from config import settings
 from database import get_db
 from auth import verify_admin_user
 
 router = APIRouter()
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class AdjustCreditsRequest(BaseModel):
@@ -21,6 +30,42 @@ class AdjustCreditsRequest(BaseModel):
 
 class UpdateUserStatusRequest(BaseModel):
     is_active: bool
+
+
+@router.post("/login")
+async def admin_login(body: AdminLoginRequest):
+    """Authenticate administrator with secure credentials configured in .env."""
+    is_user_valid = secrets.compare_digest(body.username.strip(), settings.ADMIN_USERNAME.strip())
+    is_pass_valid = secrets.compare_digest(body.password.strip(), settings.ADMIN_PASSWORD.strip())
+
+    if not (is_user_valid and is_pass_valid):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid administrator credentials. Access denied."
+        )
+
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRY_MINUTES)
+    payload = {
+        "sub": "admin-system-account",
+        "username": settings.ADMIN_USERNAME,
+        "role": "admin",
+        "exp": expire,
+        "is_admin": True,
+    }
+    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": settings.ADMIN_USERNAME,
+        "role": "admin"
+    }
+
+
+@router.get("/verify")
+async def verify_admin_session(admin=Depends(verify_admin_user)):
+    """Check if the current admin session token is valid."""
+    return {"status": "authenticated", "role": "admin", "username": admin.get("username")}
+
 
 
 @router.get("/metrics")
@@ -216,7 +261,7 @@ async def update_user_status(
     if not user_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    if user_row[1] in ("sanyam.karnavat5@gmail.com", "admin@resumeai.com") and not req.is_active:
+    if user_row[1] in ("sanyam.karnavat5@gmail.com", "admin@uppshot.com", "admin@resumeai.com") and not req.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot deactivate the superadmin account.")
 
     await cur.execute("UPDATE users SET is_active = %s WHERE id = %s", (req.is_active, str(user_id)))

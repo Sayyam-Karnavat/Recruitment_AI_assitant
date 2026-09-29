@@ -12,9 +12,9 @@ export default function TermsOfService() {
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-slate-900 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-              R
+              U
             </div>
-            <span>Resume<span className="text-blue-600">AI</span></span>
+            <span>Upp<span className="text-blue-600">shot</span></span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
             <ArrowLeft size={14} /> Back to Home
@@ -42,7 +42,7 @@ export default function TermsOfService() {
               <CheckCircle2 className="w-4 h-4 text-blue-600" /> 1. Acceptance of Terms
             </h2>
             <p>
-              By signing into ResumeAI, purchasing screening credits, or accessing our developer APIs, you agree to be bound by these Terms of Service. If you are entering into this agreement on behalf of a company or legal entity, you represent that you have the authority to bind such entity to these terms.
+              By signing into Uppshot, purchasing screening credits, or accessing our developer APIs, you agree to be bound by these Terms of Service. If you are entering into this agreement on behalf of a company or legal entity, you represent that you have the authority to bind such entity to these terms.
             </p>
           </section>
 
@@ -51,7 +51,7 @@ export default function TermsOfService() {
               <CheckCircle2 className="w-4 h-4 text-blue-600" /> 2. Credit Wallet & Usage Rules
             </h2>
             <p>
-              ResumeAI operates on a prepaid credit model:
+              Uppshot operates on a prepaid credit model:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600">
               <li>Each credit authorizes the automated screening, structured parsing, and AI scoring of one candidate resume.</li>
@@ -79,7 +79,7 @@ export default function TermsOfService() {
               <AlertCircle className="w-4 h-4 text-blue-600" /> 4. AI Evaluation Disclaimer
             </h2>
             <p>
-              ResumeAI delivers automated candidate ranking based on algorithmic semantic analysis against provided Job Descriptions. Our scores and recommendations serve as decision-support intelligence for human hiring teams; final hiring decisions, interviews, and background verifications remain the sole responsibility of the employer.
+              Uppshot delivers automated candidate ranking based on algorithmic semantic analysis against provided Job Descriptions. Our scores and recommendations serve as decision-support intelligence for human hiring teams; final hiring decisions, interviews, and background verifications remain the sole responsibility of the employer.
             </p>
           </section>
 

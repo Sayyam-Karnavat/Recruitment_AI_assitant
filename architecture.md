@@ -1,5 +1,5 @@
 # System Architecture & Scalability Guide 🏗️
-**System:** Recruitment AI Assistant  
+**System:** Uppshot (AI-Powered Talent Screening Platform)  
 **Target Scale:** 1,000 Recruiters (~2,000 Active Jobs, 100,000–200,000 Resumes, 2,500 Burst Screening Tasks)  
 
 ---

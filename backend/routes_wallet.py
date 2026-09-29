@@ -88,7 +88,7 @@ def _verify_webhook_signature(raw_body: bytes, signature: str) -> bool:
 
 
 def _is_unlimited(email: str) -> bool:
-    return email.lower() in ("sanyam.karnavat5@gmail.com", "admin@resumeai.com")
+    return email.lower() in ("sanyam.karnavat5@gmail.com", "admin@uppshot.com", "admin@resumeai.com")
 
 
 # ---------------------------------------------------------------------------

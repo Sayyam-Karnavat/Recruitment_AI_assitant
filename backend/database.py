@@ -266,14 +266,14 @@ async def init_db():
             await cur.execute("ALTER TABLE users ALTER COLUMN credits SET DEFAULT 10;")
             await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'recruiter';")
             await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
-            await cur.execute("UPDATE users SET role = 'admin' WHERE email IN ('sanyam.karnavat5@gmail.com', 'admin@resumeai.com');")
+            await cur.execute("UPDATE users SET role = 'admin' WHERE email IN ('sanyam.karnavat5@gmail.com', 'admin@uppshot.com', 'admin@resumeai.com');")
             
             # Seed admin user if not exists
-            await cur.execute("SELECT id FROM users WHERE email = 'admin@resumeai.com'")
+            await cur.execute("SELECT id FROM users WHERE email = 'admin@uppshot.com'")
             if not await cur.fetchone():
                 await cur.execute(
                     "INSERT INTO users (email) VALUES (%s)",
-                    ("admin@resumeai.com",)
+                    ("admin@uppshot.com",)
                 )
 
             # Sync all existing candidate evaluations to proportional dynamic scaling

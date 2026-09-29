@@ -18,9 +18,9 @@ export default function ContactUs() {
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-slate-900 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-              R
+              U
             </div>
-            <span>Resume<span className="text-blue-600">AI</span></span>
+            <span>Upp<span className="text-blue-600">shot</span></span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
             <ArrowLeft size={14} /> Back to Home
@@ -51,7 +51,7 @@ export default function ContactUs() {
               </div>
               <div>
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Email Us</h3>
-                <p className="text-xs text-slate-600 mt-1 break-all">support@resumeai.io</p>
+                <p className="text-xs text-slate-600 mt-1 break-all">support@uppshot.com</p>
                 <p className="text-xs text-slate-500 mt-0.5">sanyam.karnavat5@gmail.com</p>
               </div>
             </div>
@@ -74,7 +74,7 @@ export default function ContactUs() {
               <div>
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Headquarters</h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  ResumeAI Tech Hub<br />
+                  Uppshot Tech Hub<br />
                   Cyber City, Phase 2<br />
                   Gurugram, Haryana 122002, India
                 </p>

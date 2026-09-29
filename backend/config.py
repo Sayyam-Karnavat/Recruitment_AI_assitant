@@ -32,7 +32,10 @@ class Settings(BaseSettings):
     RAZORPAY_PLAN_GROWTH: str = ""    # 500 credits/mo @ ₹299
     RAZORPAY_PLAN_PRO: str = ""       # 2000 credits/mo @ ₹999
     # PAYG auto-topup: how many days a PAYG mandate order stays valid
-    PAYG_ORDER_EXPIRE_DAYS: int = 7
+    # Admin Portal Credentials
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "SanyamAdmin@2026#Secure"
+
     FRONTEND_URL: str = ""
 
     # Production frontend / backend URLs

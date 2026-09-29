@@ -397,10 +397,10 @@ export default function PublicJobApply() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 text-decoration-none group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-700 to-brand-500 flex items-center justify-center shadow-md shadow-brand-500/20 text-white font-black text-sm">
-              R
+              U
             </div>
             <span className="font-extrabold text-base tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
-              Resume<span className="text-brand-600">AI</span> Careers
+              Upp<span className="text-brand-600">shot</span> Careers
             </span>
           </Link>
 
@@ -491,7 +491,7 @@ export default function PublicJobApply() {
 
               <div className="pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-slate-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                <span>Verified position • Automated AI screening powered by ResumeAI</span>
+                <span>Verified position • Automated AI screening powered by Uppshot</span>
               </div>
             </div>
           </div>
@@ -1069,7 +1069,7 @@ export default function PublicJobApply() {
           <span>•</span>
           <Link to="/contact" target="_blank" className="hover:text-blue-600 transition-colors">Contact Us</Link>
         </div>
-        <p className="text-[11px] text-slate-400">© 2026 ResumeAI Recruitment Engine. Powered by Enterprise LLM Semantic Screening.</p>
+        <p className="text-[11px] text-slate-400">© 2026 Uppshot Recruitment Engine. Powered by Enterprise LLM Semantic Screening.</p>
       </footer>
     </div>
   )
