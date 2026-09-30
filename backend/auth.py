@@ -9,10 +9,11 @@ import hashlib
 from config import settings
 from database import get_db
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
+from typing import Optional
 
 security = HTTPBearer()
-api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+x_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+auth_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 def hash_api_key(api_key: str) -> str:
     return hashlib.sha256(api_key.encode()).hexdigest()
@@ -53,17 +54,19 @@ async def get_current_user(
 
 
 async def get_api_key_user(
-    api_key_header: str = Depends(api_key_header),
+    x_api_key: Optional[str] = Depends(x_api_key_header),
+    auth_val: Optional[str] = Depends(auth_header),
     db=Depends(get_db)
 ):
-    if not api_key_header:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API Key")
+    raw_key = x_api_key or auth_val
+    if not raw_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API Key. Provide via 'X-API-Key' or 'Authorization: Bearer <key>' header.")
     
     # Check if they sent "Bearer sk_..."
-    if api_key_header.startswith("Bearer "):
-        api_key = api_key_header.replace("Bearer ", "")
+    if raw_key.startswith("Bearer "):
+        api_key = raw_key.replace("Bearer ", "").strip()
     else:
-        api_key = api_key_header
+        api_key = raw_key.strip()
 
     hashed_key = hash_api_key(api_key)
     conn, cur = db

@@ -37,7 +37,14 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 
-app = FastAPI(title="Uppshot Platform API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Uppshot Platform API",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan
+)
 
 trusted_origins = [
     "http://localhost:5173",
