@@ -4,6 +4,8 @@ import api from '../services/api'
 interface AuthContextType {
   token: string | null
   loginWithGoogle: (credential: string) => Promise<void>
+  loginWithGithub: (code: string) => Promise<void>
+  setSessionToken: (token: string) => void
   logout: () => void
 }
 
@@ -19,13 +21,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(t)
   }
 
+  const loginWithGithub = async (code: string) => {
+    const res = await api.post('/auth/github', { code })
+    const t = res.data.access_token
+    localStorage.setItem('token', t)
+    setToken(t)
+  }
+
+  const setSessionToken = (newToken: string) => {
+    localStorage.setItem('token', newToken)
+    setToken(newToken)
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
     setToken(null)
   }
 
   return (
-    <AuthContext.Provider value={{ token, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ token, loginWithGoogle, loginWithGithub, setSessionToken, logout }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,24 +1,79 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../hooks/useAuth'
 import { Sparkles, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react'
 
 export default function Login() {
-  const { loginWithGoogle } = useAuth()
+  const { loginWithGoogle, loginWithGithub, setSessionToken } = useAuth()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [statusMessage, setStatusMessage] = useState('')
   const [error, setError] = useState('')
+
+  const githubClientId = import.meta.env.VITE_GITHUB_CLIENT_ID || ''
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tokenParam = params.get('token')
+    const codeParam = params.get('code')
+    const errorParam = params.get('error')
+
+    if (errorParam) {
+      setError(params.get('error_description') || 'GitHub authentication failed or was cancelled.')
+      window.history.replaceState({}, document.title, window.location.pathname)
+      return
+    }
+
+    if (tokenParam) {
+      setSessionToken(tokenParam)
+      window.history.replaceState({}, document.title, window.location.pathname)
+      navigate('/dashboard', { replace: true })
+      return
+    }
+
+    if (codeParam) {
+      setLoading(true)
+      setStatusMessage('Authenticating with GitHub...')
+      setError('')
+      loginWithGithub(codeParam)
+        .then(() => {
+          window.history.replaceState({}, document.title, window.location.pathname)
+          navigate('/dashboard', { replace: true })
+        })
+        .catch((err: any) => {
+          window.history.replaceState({}, document.title, window.location.pathname)
+          setError(err?.response?.data?.detail || 'GitHub authentication failed.')
+        })
+        .finally(() => {
+          setLoading(false)
+          setStatusMessage('')
+        })
+    }
+  }, [])
 
   const handleGoogle = async (credential: string) => {
     setLoading(true)
+    setStatusMessage('Authenticating workspace...')
     setError('')
     try {
       await loginWithGoogle(credential)
+      navigate('/dashboard', { replace: true })
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Google sign-in failed.')
     } finally {
       setLoading(false)
+      setStatusMessage('')
     }
+  }
+
+  const handleGithub = () => {
+    if (!githubClientId) {
+      setError('GitHub Client ID is not configured yet. Please configure VITE_GITHUB_CLIENT_ID in your environment variables.')
+      return
+    }
+    const redirectUri = encodeURIComponent(`${window.location.origin}/login`)
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${redirectUri}&scope=user:email`
   }
 
   return (
@@ -127,7 +182,7 @@ export default function Login() {
           )}
 
           {/* Google Sign In */}
-          <div className="w-full flex justify-center py-2">
+          <div className="w-full flex justify-center py-1">
             <GoogleLogin
               onSuccess={(c) => c.credential && handleGoogle(c.credential)}
               onError={() => setError('Google sign-in was cancelled.')}
@@ -138,9 +193,32 @@ export default function Login() {
             />
           </div>
 
+          {/* Divider */}
+          <div className="relative my-3">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+              <span className="bg-white px-3 text-slate-400 font-semibold">Or</span>
+            </div>
+          </div>
+
+          {/* GitHub Sign In */}
+          <button
+            type="button"
+            onClick={handleGithub}
+            disabled={loading}
+            className="w-full h-[40px] flex items-center justify-center gap-2.5 px-4 rounded-md border border-slate-300 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm transition-all duration-150 shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-50"
+          >
+            <svg className="w-4 h-4 fill-current text-white" viewBox="0 0 24 24">
+              <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+            <span>Continue with GitHub</span>
+          </button>
+
           {loading && (
             <p className="text-center text-xs font-semibold text-blue-600 mt-4 animate-pulse">
-              Authenticating workspace...
+              {statusMessage || 'Authenticating workspace...'}
             </p>
           )}
 

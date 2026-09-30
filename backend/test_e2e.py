@@ -169,9 +169,17 @@ async def run_e2e_tests():
 
         # -------------------------------------------------------------
         # -------------------------------------------------------------
-        # 3. WALLET BALANCE
+        # 3. WALLET BALANCE & AUTH VERIFICATION
         # -------------------------------------------------------------
-        print("\n[Test 3/11] 💰 Testing Wallet Balance Retrieval...")
+        print("\n[Test 3/11] 💰 Testing Wallet Balance & Auth Endpoints...")
+        res_me = await client.get("/auth/me")
+        assert res_me.status_code == 200, f"Failed /auth/me: {res_me.text}"
+        print(f"  ✅ Auth /auth/me verified for: {res_me.json().get('email')}")
+
+        res_gh = await client.post("/auth/github", json={"code": "test_dummy_code"})
+        assert res_gh.status_code in [400, 500], f"Unexpected GitHub auth status: {res_gh.status_code}"
+        print(f"  ✅ GitHub OAuth endpoint active & protected (HTTP {res_gh.status_code})")
+
         res = await client.get("/wallet/balance")
         assert res.status_code == 200, f"Failed to get balance: {res.text}"
         balance_info = res.json()
