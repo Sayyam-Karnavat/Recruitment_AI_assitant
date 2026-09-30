@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = ""
 
     # Production frontend / backend URLs
-    PRODUCTION_FRONTEND_URL: str = "https://recruitment-ai-assitant-bvqcv4f6s-sanyam-karnavats-projects.vercel.app"
+    PRODUCTION_FRONTEND_URL: str = "https://uppshot.com"
     PRODUCTION_BACKEND_URL: str = "https://recruitment-ai-assitant-2n4r.onrender.com"
 
     model_config = SettingsConfigDict(

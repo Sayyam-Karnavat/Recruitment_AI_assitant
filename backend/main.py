@@ -56,6 +56,8 @@ trusted_origins = [
     "https://uppshot.com",
     "https://www.uppshot.com",
     "https://api.uppshot.com",
+    "https://artificial-grrow.online",
+    "https://www.artificial-grrow.online",
     "https://recruitment-ai-assitant.vercel.app",
     "https://recruitment-ai-assitant-bvqcv4f6s-sanyam-karnavats-projects.vercel.app",
     "https://recruitment-ai-assitant-2n4r.onrender.com",
@@ -69,7 +71,7 @@ if settings.FRONTEND_URL:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=trusted_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com|.*\.uppshot\.com|uppshot\.com)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com|.*\.uppshot\.com|uppshot\.com|.*\.artificial-grrow\.online|artificial-grrow\.online)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
