@@ -109,7 +109,20 @@ export default function AuthLayout() {
           })}
         </nav>
 
-
+        {/* Bottom Sidebar Action — Sign Out */}
+        <div className="p-3 border-t border-slate-200/80 flex-shrink-0 bg-white">
+          <button
+            onClick={() => logout()}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50/80 transition-all duration-150 group ${
+              collapsed ? 'justify-center px-2' : ''
+            }`}
+            title="Sign Out"
+            aria-label="Sign Out"
+          >
+            <LogOut size={18} className="text-slate-400 group-hover:text-red-500 transition-colors flex-shrink-0" />
+            {!collapsed && <span>Sign Out</span>}
+          </button>
+        </div>
       </aside>
 
       {/* ── Mobile drawer overlay ── */}
@@ -173,7 +186,20 @@ export default function AuthLayout() {
           })}
         </nav>
 
-
+        {/* Mobile Bottom Sidebar Action — Sign Out */}
+        <div className="p-3 border-t border-slate-200 bg-white flex-shrink-0">
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              logout()
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all group"
+            aria-label="Sign Out"
+          >
+            <LogOut size={18} className="text-slate-400 group-hover:text-red-500 transition-colors flex-shrink-0" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Main Content Area ── */}
@@ -262,16 +288,6 @@ export default function AuthLayout() {
                 >
                   <Code2 size={16} className="text-slate-400" />
                   Developer API
-                </button>
-                
-                <div className="h-px bg-slate-100 my-1 mx-3" />
-                
-                <button
-                  onClick={() => { setProfileOpen(false); logout(); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium"
-                >
-                  <LogOut size={16} className="text-red-500" />
-                  Sign Out
                 </button>
               </div>
             )}

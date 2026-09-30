@@ -68,12 +68,17 @@ export default function Login() {
   }
 
   const handleGithub = () => {
-    if (!githubClientId) {
+    const cleanedClientId = (githubClientId || '').trim()
+    if (!cleanedClientId) {
       setError('GitHub Client ID is not configured yet. Please configure VITE_GITHUB_CLIENT_ID in your environment variables.')
       return
     }
+    if (cleanedClientId.length === 40 && /^[a-f0-9]+$/i.test(cleanedClientId)) {
+      setError('It appears you entered the GitHub Client Secret instead of the Client ID. In GitHub Settings → Developer settings → OAuth Apps, copy the 20-character "Client ID", not the 40-character "Client Secret".')
+      return
+    }
     const redirectUri = encodeURIComponent(`${window.location.origin}/login`)
-    window.location.href = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${redirectUri}&scope=user:email`
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${cleanedClientId}&redirect_uri=${redirectUri}&scope=user:email`
   }
 
   return (
