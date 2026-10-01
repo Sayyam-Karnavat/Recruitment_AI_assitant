@@ -134,7 +134,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
     try {
       const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
         client_id: googleClientId,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        scope: 'https://www.googleapis.com/auth/drive.file',
         callback: (response: any) => {
           if (response.error) {
             setIsLoadingSdk(false);

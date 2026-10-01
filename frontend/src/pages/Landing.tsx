@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star } from 'lucide-react'
+import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star, Lock, Eye, Server, RefreshCw, FileText } from 'lucide-react'
 
 function AnimatedCounter({ target, duration = 1400 }: { target: number; duration?: number }) {
   const [value, setValue] = useState(0)
@@ -74,7 +74,13 @@ export default function Landing() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <a
+              href="#privacy"
+              className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors hidden sm:block"
+            >
+              Privacy Policy
+            </a>
             <Link
               to="/login"
               className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-sm shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-1.5"
@@ -246,6 +252,105 @@ export default function Landing() {
           ))}
         </div>
 
+        {/* Privacy Policy & Data Governance Section */}
+        <section id="privacy" className="text-left mb-24 pt-12 border-t border-slate-200/80 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold mb-3">
+              <ShieldCheck size={14} className="text-blue-600" />
+              <span>Data Protection & Compliance Standard</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              Privacy Policy & Security
+            </h2>
+            <p className="text-slate-600 text-sm mt-3 leading-relaxed">
+              Uppshot is committed to protecting candidate personal data and recruiter confidentiality. 
+              Our recruitment intelligence platform operates with zero LLM model training and strict data sovereignty.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {/* Card 1: Data Collection */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <Eye size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">1. Information We Collect</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                We only collect information strictly required to evaluate and rank candidate resumes:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li><strong>Account Identity:</strong> Email and profile name authenticated via Google OAuth or GitHub OAuth.</li>
+                <li><strong>Application Data:</strong> Candidate name, phone, email, career experience, and skills extracted from uploaded PDF/DOCX resumes.</li>
+                <li><strong>Billing Audit Logs:</strong> Transaction identifiers generated securely via Razorpay (we never store card numbers or payment credentials).</li>
+              </ul>
+            </div>
+
+            {/* Card 2: Google API Limited Use Disclosure */}
+            <div className="bg-white border border-blue-200/90 rounded-2xl p-6 shadow-xs space-y-3 relative overflow-hidden bg-gradient-to-br from-white to-blue-50/20">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <Lock size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">2. Google API Limited Use Disclosure</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Uppshot's use and transfer of information received from Google APIs to any other app will adhere to the{' '}
+                <a
+                  href="https://developers.google.com/terms/api-services-user-data-policy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 underline font-semibold hover:text-blue-700"
+                >
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements.
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li><strong>Google Picker Scope:</strong> Our Google Drive integration requests only <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">drive.file</code> to access only the single resume document you explicitly pick.</li>
+                <li><strong>Strict Privacy:</strong> We do not scan, browse, or read any other files or folders in your Google Drive.</li>
+              </ul>
+            </div>
+
+            {/* Card 3: AI & LLM Data Protection */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <Server size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">3. AI Privacy & Zero LLM Training</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Candidate data belongs exclusively to the recruiter and applicant:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li><strong>Zero Foundation Model Training:</strong> Applicant data is NEVER used to train, retrain, or fine-tune public foundation AI models (OpenAI or Azure).</li>
+                <li><strong>In-Memory Processing:</strong> Resumes are parsed dynamically in transient memory with zero unencrypted disk caching.</li>
+                <li><strong>Encryption:</strong> All data transmissions are protected via industry-standard TLS 1.3 encryption.</li>
+              </ul>
+            </div>
+
+            {/* Card 4: Data Retention & User Deletion Rights */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <RefreshCw size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">4. Retention & Candidate Rights</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Recruiters retain full ownership and authority over all candidate information:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li><strong>Permanent Cascade Deletion:</strong> Deleting a candidate or job posting immediately and permanently purges all resume profiles, evaluations, and categorical scores from the database.</li>
+                <li><strong>DPO Inquiries:</strong> For data deletion or privacy inquiries, contact our Data Protection Officer at <a href="mailto:support@uppshot.com" className="text-blue-600 font-medium">support@uppshot.com</a> or <a href="mailto:sanyam.karnavat5@gmail.com" className="text-blue-600 font-medium">sanyam.karnavat5@gmail.com</a>.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              to="/privacy"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 border border-blue-200 px-4 py-2 rounded-xl transition-all"
+            >
+              <FileText size={14} /> Read Full Standalone Privacy Policy Page <ArrowRight size={14} />
+            </Link>
+          </div>
+        </section>
+
         {/* Bottom CTA */}
         <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-10 sm:p-14 text-white text-center shadow-xl shadow-blue-600/20">
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
@@ -271,7 +376,8 @@ export default function Landing() {
             <span>— Precision AI Recruitment Intelligence</span>
           </div>
           <div className="flex flex-wrap items-center gap-6">
-            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+            <a href="#privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
+            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Full Policy Page</Link>
             <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
             <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
             <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>

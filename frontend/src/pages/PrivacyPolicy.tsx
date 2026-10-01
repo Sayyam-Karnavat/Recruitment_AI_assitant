@@ -42,19 +42,42 @@ export default function PrivacyPolicy() {
               <Eye className="w-4 h-4 text-blue-600" /> 1. Overview & Information We Collect
             </h2>
             <p>
-              Uppshot ("we", "our", or "us") provides AI-powered resume screening, applicant evaluation, and candidate ranking solutions for employers and hiring teams. This Privacy Policy outlines how we collect, process, and safeguard personal data when recruiters and job applicants use our platform.
+              Uppshot ("we", "our", or "us"), operated by Artificial Grrow (https://www.artificial-grrow.online) and hosted at https://uppshot.com, provides AI-powered resume screening, applicant evaluation, and candidate ranking solutions for employers and hiring teams. This Privacy Policy outlines how we collect, process, and safeguard personal data when recruiters and job applicants use our platform.
             </p>
             <p>We collect the following categories of information:</p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600">
-              <li><strong>Recruiter Account Information:</strong> Email address, name, authentication tokens via Google OAuth, and credit transaction ledgers.</li>
+              <li><strong>Recruiter Account Information:</strong> Email address, name, authentication tokens via Google OAuth or GitHub OAuth, and credit transaction ledgers.</li>
               <li><strong>Candidate Application Data:</strong> Name, email address, telephone number, employment history, education, skills, and resume files (PDF, DOCX) uploaded by applicants or recruiters.</li>
               <li><strong>System Telemetry & Billing:</strong> IP addresses, payment transaction reference IDs generated via Razorpay, and API usage statistics.</li>
             </ul>
           </section>
 
+          <section className="bg-white p-6 rounded-2xl border border-blue-200/80 shadow-xs space-y-3 bg-gradient-to-br from-white to-blue-50/20">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-blue-600" /> 2. Google API Services & Limited Use Disclosure
+            </h2>
+            <p className="font-medium text-slate-800">
+              Uppshot's use and transfer of information received from Google APIs to any other app will adhere to the{' '}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 underline font-semibold hover:text-blue-700"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-slate-600">
+              <li><strong>Google Sign-In:</strong> Used solely to authenticate recruiter and applicant identity via email and name.</li>
+              <li><strong>Google Drive Integration (Google Picker):</strong> Uses the scoped <code className="bg-slate-100 px-1 py-0.5 rounded text-xs">drive.file</code> permission exclusively to download resume documents that you manually pick. We never scan, browse, or access any other files in your Google Drive.</li>
+              <li><strong>No Data Resale or Advertising:</strong> Google user data is never transferred, shared, or sold to third parties, external brokers, or advertising networks.</li>
+            </ul>
+          </section>
+
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Server className="w-4 h-4 text-blue-600" /> 2. AI Processing & LLM Data Protection
+              <Server className="w-4 h-4 text-blue-600" /> 3. AI Processing & LLM Data Protection
             </h2>
             <p>
               Resume evaluations are processed via dedicated enterprise Azure OpenAI / OpenAI endpoints:
@@ -68,7 +91,7 @@ export default function PrivacyPolicy() {
 
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-blue-600" /> 3. Payment & Financial Data
+              <Lock className="w-4 h-4 text-blue-600" /> 4. Payment & Financial Data
             </h2>
             <p>
               Uppshot does not store debit card numbers, credit card CVVs, or net banking passwords. All billing and wallet top-ups are processed directly by our RBI-licensed payment gateway partner, <strong>Razorpay Software Private Limited</strong>. Payment records stored on our servers are limited to transaction identifiers, credit amounts, and timestamp audit logs.
@@ -77,7 +100,7 @@ export default function PrivacyPolicy() {
 
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-blue-600" /> 4. Data Retention & Candidate Rights
+              <RefreshCw className="w-4 h-4 text-blue-600" /> 5. Data Retention & Candidate Rights
             </h2>
             <p>
               Recruiters retain full ownership and control over candidate data submitted to their jobs. Recruiters may delete candidate evaluation records or job postings at any time directly through the recruiter dashboard, which permanently cascades deletion across all candidate profiles, scores, and categorical feedback.
@@ -85,7 +108,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <h2 className="text-base font-bold text-slate-900">5. Contact Information</h2>
+            <h2 className="text-base font-bold text-slate-900">6. Contact Information</h2>
             <p>
               For privacy inquiries, data deletion requests, or questions regarding this policy, please reach out to our Data Protection Officer at:
               <br />
