@@ -224,7 +224,7 @@ export default function AuthLayout() {
               isUnlimited
                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300 text-blue-700'
                 : billingMode === 'payg_monthly'
-                ? 'bg-emerald-50/70 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100/60 text-emerald-900'
+                ? 'bg-blue-50/70 border-blue-200 hover:border-blue-300 hover:bg-blue-100/60 text-blue-900'
                 : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 text-slate-800'
             }`}
             title="Account Usage & Credits"
@@ -243,11 +243,11 @@ export default function AuthLayout() {
               </>
             ) : billingMode === 'payg_monthly' ? (
               <>
-                <CreditCard size={14} className="text-emerald-600" />
+                <CreditCard size={14} className="text-blue-600" />
                 <span className="text-xs font-bold text-slate-800">
                   PAYG {cardLast4 ? `(•••• ${cardLast4})` : 'Active'}
                 </span>
-                <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-xs">
+                <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs">
                   ₹0.79 / resume
                 </span>
               </>
