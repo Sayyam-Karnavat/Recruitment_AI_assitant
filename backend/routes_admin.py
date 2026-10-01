@@ -90,7 +90,7 @@ async def get_admin_metrics(
     await cur.execute(
         """SELECT 
                count(*),
-               count(*) FILTER (WHERE status = 'completed'),
+               count(*) FILTER (WHERE status IN ('evaluated', 'completed')),
                count(*) FILTER (WHERE status = 'pending'),
                count(*) FILTER (WHERE status = 'failed'),
                count(*) FILTER (WHERE error_type = 'system_fault'),
@@ -273,3 +273,43 @@ async def update_user_status(
         "is_active": req.is_active,
         "message": f"User {user_row[1]} is now {'active' if req.is_active else 'suspended'}."
     }
+
+
+class ResetTelemetryRequest(BaseModel):
+    reset_transactions: bool = True
+    reset_candidates: bool = False
+    reset_credits_to: Optional[int] = None
+
+
+@router.post("/reset-telemetry")
+async def reset_platform_telemetry(
+    req: ResetTelemetryRequest,
+    admin=Depends(verify_admin_user),
+    db=Depends(get_db)
+):
+    """
+    Reset test transactions and financial telemetry so production starts with clean metrics.
+    Requires dedicated Superadmin authentication.
+    """
+    conn, cur = db
+    if req.reset_transactions:
+        await cur.execute("DELETE FROM transactions")
+        await cur.execute("DELETE FROM payment_orders")
+        await cur.execute("DELETE FROM subscriptions")
+
+    if req.reset_candidates:
+        await cur.execute("DELETE FROM candidates")
+        await cur.execute("DELETE FROM upload_batches")
+
+    if req.reset_credits_to is not None:
+        await cur.execute(
+            "UPDATE users SET credits = %s WHERE email != 'sanyam.karnavat5@gmail.com' AND role != 'admin'",
+            (req.reset_credits_to,)
+        )
+
+    await conn.commit()
+    return {
+        "success": True,
+        "message": "Platform test telemetry and financial records have been reset successfully."
+    }
+

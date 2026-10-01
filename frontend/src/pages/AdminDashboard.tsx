@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import {
   Users, DollarSign, Cpu, TrendingUp, ShieldCheck, AlertTriangle,
   Search, RefreshCw, CheckCircle2, XCircle, PlusCircle, MinusCircle,
-  Briefcase, FileText, ArrowUpRight, Lock, Award
+  Briefcase, FileText, ArrowUpRight, Lock, Award, RotateCcw
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -119,6 +119,28 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleResetTelemetry = async () => {
+    if (!window.confirm("Are you sure you want to reset test financial metrics? This will clear test purchase transactions, resetting revenue and gross profit to ₹0 for production launch.")) {
+      return
+    }
+    try {
+      setIsSubmitting(true)
+      const res = await api.post('/admin/reset-telemetry', {
+        reset_transactions: true,
+        reset_candidates: false,
+      })
+      setStatusMessage({ text: res.data.message })
+      await loadAdminData()
+    } catch (err: any) {
+      setStatusMessage({
+        text: err.response?.data?.detail || 'Failed to reset test telemetry.',
+        isError: true
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const filteredUsers = users.filter(u =>
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -148,13 +170,24 @@ export default function AdminDashboard() {
             Real-time telemetry measuring gross margins, Azure/OpenAI token spend, and recruiter accounts.
           </p>
         </div>
-        <button
-          onClick={loadAdminData}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Telemetry</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={handleResetTelemetry}
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 shadow-xs transition-colors disabled:opacity-50"
+            title="Reset test purchase transactions to ₹0"
+          >
+            <RotateCcw size={13} />
+            <span>Reset Test Revenue</span>
+          </button>
+          <button
+            onClick={loadAdminData}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 shadow-xs transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Telemetry</span>
+          </button>
+        </div>
       </div>
 
       {statusMessage && (
