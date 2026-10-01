@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star, Lock, Eye, Server, RefreshCw, FileText } from 'lucide-react'
+import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star, Lock, Eye, Server, RefreshCw, FileText, AlertCircle, ShieldAlert } from 'lucide-react'
 
 function AnimatedCounter({ target, duration = 1400 }: { target: number; duration?: number }) {
   const [value, setValue] = useState(0)
@@ -80,6 +80,12 @@ export default function Landing() {
               className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors hidden sm:block"
             >
               Privacy Policy
+            </a>
+            <a
+              href="#terms"
+              className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors hidden sm:block"
+            >
+              Terms of Service
             </a>
             <Link
               to="/login"
@@ -351,6 +357,98 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* Terms of Service Section */}
+        <section id="terms" className="text-left mb-24 pt-12 border-t border-slate-200/80 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold mb-3">
+              <FileText size={14} className="text-blue-600" />
+              <span>User Agreement & Service Conditions</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              Terms of Service
+            </h2>
+            <p className="text-slate-600 text-sm mt-3 leading-relaxed">
+              These terms govern your access to Uppshot (operated by Artificial Grrow, https://www.artificial-grrow.online, and hosted at https://uppshot.com) 
+              for candidate resume parsing, applicant evaluation, and recruitment pipeline management.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {/* Card 1: Acceptance & Accounts */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <CheckCircle2 size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">1. Acceptance of Terms</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                By creating an account, authenticating via Google or GitHub, purchasing screening credits, or accessing our developer APIs, you agree to comply with these Terms of Service and represent that you have legal authority to bind your organization.
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li>Users must maintain valid account credentials and prevent unauthorized third-party access.</li>
+                <li>Recruiters are solely responsible for ensuring uploaded job specifications comply with applicable labor laws.</li>
+              </ul>
+            </div>
+
+            {/* Card 2: Credit Wallet & Usage */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <CheckCircle2 size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">2. Credit Wallet & Usage Rules</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Uppshot operates on a transparent, pre-paid credit infrastructure:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li><strong>Unit Consumption:</strong> Exactly 1 credit is deducted per candidate resume processed and evaluated.</li>
+                <li><strong>Welcome Bonus:</strong> Every new verified recruiter account receives 10 free screening credits upon initial sign-in.</li>
+                <li><strong>Validity:</strong> Purchased screening credits remain active for 365 days from the transaction date.</li>
+                <li><strong>Billing Security:</strong> All financial payments are processed through Razorpay; we never handle or store raw payment credentials.</li>
+              </ul>
+            </div>
+
+            {/* Card 3: Prohibited Conduct & Fair Use */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 font-bold text-sm">
+                <ShieldAlert size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">3. Prohibited Conduct & Fair Use</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                To safeguard service availability, users and API integrators must not:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li>Submit corrupted files, decompressed zip bombs, or scripts intended to disrupt platform stability.</li>
+                <li>Conduct automated scraping, bot applications, or credential abuse against public candidate links.</li>
+                <li>Direct custom webhooks towards loopback addresses or internal cloud metadata IP addresses.</li>
+                <li>Attempt to decompile, reverse-engineer, or clone proprietary evaluation prompts or algorithms.</li>
+              </ul>
+            </div>
+
+            {/* Card 4: AI Evaluation Disclaimer */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                <AlertCircle size={18} />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">4. Decision Support & Jurisdiction</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Uppshot provides algorithmic semantic evaluation strictly as decision-support intelligence for human hiring teams:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                <li>Final hiring decisions, interview scheduling, and background checks remain the exclusive prerogative of the employer.</li>
+                <li>These Terms are governed by the commercial laws of India, subject to the jurisdiction of the competent courts.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              to="/terms"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 border border-blue-200 px-4 py-2 rounded-xl transition-all"
+            >
+              <FileText size={14} /> Read Full Standalone Terms of Service Page <ArrowRight size={14} />
+            </Link>
+          </div>
+        </section>
+
         {/* Bottom CTA */}
         <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-10 sm:p-14 text-white text-center shadow-xl shadow-blue-600/20">
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
@@ -377,8 +475,9 @@ export default function Landing() {
           </div>
           <div className="flex flex-wrap items-center gap-6">
             <a href="#privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
+            <a href="#terms" className="hover:text-blue-600 transition-colors">Terms of Service</a>
             <Link to="/privacy" className="hover:text-blue-600 transition-colors">Full Policy Page</Link>
-            <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+            <Link to="/terms" className="hover:text-blue-600 transition-colors">Full Terms Page</Link>
             <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
             <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>
           </div>

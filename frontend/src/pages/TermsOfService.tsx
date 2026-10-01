@@ -42,7 +42,7 @@ export default function TermsOfService() {
               <CheckCircle2 className="w-4 h-4 text-blue-600" /> 1. Acceptance of Terms
             </h2>
             <p>
-              By signing into Uppshot, purchasing screening credits, or accessing our developer APIs, you agree to be bound by these Terms of Service. If you are entering into this agreement on behalf of a company or legal entity, you represent that you have the authority to bind such entity to these terms.
+              By signing into Uppshot (operated by Artificial Grrow, https://www.artificial-grrow.online, and hosted at https://uppshot.com), purchasing screening credits, or accessing our developer APIs, you agree to be bound by these Terms of Service. If you are entering into this agreement on behalf of a company or legal entity, you represent that you have the authority to bind such entity to these terms.
             </p>
           </section>
 
