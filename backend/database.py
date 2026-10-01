@@ -266,6 +266,12 @@ async def init_db():
             await cur.execute("ALTER TABLE users ALTER COLUMN credits SET DEFAULT 10;")
             await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'recruiter';")
             await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_mode VARCHAR(20) DEFAULT 'prepaid';")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS payg_screened_count INT DEFAULT 0;")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS payg_cycle_start TIMESTAMPTZ DEFAULT NOW();")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS payg_cycle_end TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days');")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS card_last4 VARCHAR(4);")
+            await cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS card_network VARCHAR(30);")
             await cur.execute("UPDATE users SET role = 'admin' WHERE email IN ('sanyam.karnavat5@gmail.com', 'admin@uppshot.com', 'admin@resumeai.com');")
             
             # Seed admin user if not exists
@@ -275,6 +281,16 @@ async def init_db():
                     "INSERT INTO users (email) VALUES (%s)",
                     ("admin@uppshot.com",)
                 )
+
+            # Ensure proper defaults for existing users
+            await cur.execute("UPDATE users SET billing_mode = 'prepaid' WHERE billing_mode IS NULL;")
+            await cur.execute("UPDATE users SET payg_screened_count = 0 WHERE payg_screened_count IS NULL;")
+
+            # Clean up any leftover test data from automated simulation runs (cascades to jobs/batches/candidates)
+            await cur.execute("DELETE FROM users WHERE email LIKE '%@enterprise.test';")
+            await cur.execute("DELETE FROM transactions WHERE reference_id LIKE 'pay_test_%';")
+            await cur.execute("DELETE FROM payment_orders WHERE razorpay_payment_id LIKE 'pay_test_%' OR razorpay_order_id LIKE '%test%';")
+            await cur.execute("DELETE FROM payment_mandates WHERE razorpay_token_id LIKE 'token_test_%' OR razorpay_customer_id LIKE 'cust_test_%';")
 
             # Sync all existing candidate evaluations to proportional dynamic scaling
             await cur.execute(

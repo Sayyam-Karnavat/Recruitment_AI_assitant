@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon, ShieldCheck, User, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon, ShieldCheck, User, ChevronDown, CreditCard } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
 
@@ -15,7 +15,7 @@ function LogoMark({ size = 20 }: { size?: number }) {
 
 export default function AuthLayout() {
   const { logout } = useAuth()
-  const { credits, isUnlimited, openWalletModal, userEmail } = useWallet()
+  const { credits, isUnlimited, openWalletModal, userEmail, billingMode, cardLast4 } = useWallet()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -223,6 +223,8 @@ export default function AuthLayout() {
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border transition-all shadow-sm ${
               isUnlimited
                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300 text-blue-700'
+                : billingMode === 'payg_monthly'
+                ? 'bg-emerald-50/70 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-100/60 text-emerald-900'
                 : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 text-slate-800'
             }`}
             title="Account Usage & Credits"
@@ -237,6 +239,16 @@ export default function AuthLayout() {
                 </span>
                 <span className="text-[10px] font-bold uppercase bg-blue-100/80 text-blue-700 px-2 py-0.5 rounded-full">
                   No Limits
+                </span>
+              </>
+            ) : billingMode === 'payg_monthly' ? (
+              <>
+                <CreditCard size={14} className="text-emerald-600" />
+                <span className="text-xs font-bold text-slate-800">
+                  PAYG {cardLast4 ? `(•••• ${cardLast4})` : 'Active'}
+                </span>
+                <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-xs">
+                  ₹0.79 / resume
                 </span>
               </>
             ) : (

@@ -677,9 +677,9 @@ export default function JobDetail() {
             {!isUnlimited && uploadError.toLowerCase().includes('credit') && (
               <button
                 onClick={openWalletModal}
-                className="btn btn-primary text-xs py-1.5 px-3"
+                className="btn btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
               >
-                <CreditCard className="w-3.5 h-3.5" /> Top Up Wallet
+                <CreditCard className="w-3.5 h-3.5" /> Top Up / Pay-As-You-Go
               </button>
             )}
             <button

@@ -26,9 +26,21 @@ export interface ActiveSubscription {
   next_billing: string | null
 }
 
+export interface PaygDetails {
+  is_active: boolean
+  rate_per_resume_inr: number
+  screened_this_cycle: number
+  current_accrued_inr: number
+  cycle_start: string | null
+  cycle_end: string | null
+  card_last4: string | null
+  card_network: string | null
+  has_mandate?: boolean
+}
+
 export interface PaygMandate {
-  package_id: string
-  threshold: number
+  package_id?: string
+  threshold?: number
   is_active: boolean
   last_charged_at: string | null
 }
@@ -40,6 +52,10 @@ interface WalletContextType {
   role: string
   isAdmin: boolean
   loading: boolean
+  billingMode: 'prepaid' | 'payg_monthly'
+  cardLast4: string | null
+  cardNetwork: string | null
+  paygDetails: PaygDetails | null
   packages: WalletPackage[]
   subscriptionPlans: SubscriptionPlan[]
   activeSubscription: ActiveSubscription | null
@@ -61,6 +77,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState<string>('')
   const [role, setRole] = useState<string>('recruiter')
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  const [billingMode, setBillingMode] = useState<'prepaid' | 'payg_monthly'>('prepaid')
+  const [cardLast4, setCardLast4] = useState<string | null>(null)
+  const [cardNetwork, setCardNetwork] = useState<string | null>(null)
+  const [paygDetails, setPaygDetails] = useState<PaygDetails | null>(null)
   const [packages, setPackages] = useState<WalletPackage[]>([])
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([])
   const [activeSubscription, setActiveSubscription] = useState<ActiveSubscription | null>(null)
@@ -82,6 +102,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsUnlimited(unlimited)
       setRole(res.data.role || 'recruiter')
       setIsAdmin(admin)
+      setBillingMode(res.data.billing_mode || 'prepaid')
+      setCardLast4(res.data.card_last4 || null)
+      setCardNetwork(res.data.card_network || null)
+      setPaygDetails(res.data.payg_details || null)
       setCredits(unlimited ? 999999 : (res.data.credits ?? 0))
       if (res.data.packages) setPackages(res.data.packages)
       if (res.data.subscription_plans) setSubscriptionPlans(res.data.subscription_plans)
@@ -103,6 +127,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setCredits(0)
       setIsUnlimited(false)
       setUserEmail('')
+      setBillingMode('prepaid')
+      setCardLast4(null)
+      setCardNetwork(null)
+      setPaygDetails(null)
       setActiveSubscription(null)
       setPaygMandate(null)
     }
@@ -117,6 +145,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         role,
         isAdmin,
         loading,
+        billingMode,
+        cardLast4,
+        cardNetwork,
+        paygDetails,
         packages,
         subscriptionPlans,
         activeSubscription,

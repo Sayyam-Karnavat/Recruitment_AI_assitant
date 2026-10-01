@@ -130,15 +130,20 @@ async def upload_resumes(
     user_email = (user.get("email") or "").lower()
     is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
 
-    if num_resumes > 0 and not is_unlimited:
-        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
-        user_row = await cur.fetchone()
-        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    await cur.execute(
+        "SELECT credits, COALESCE(billing_mode, 'prepaid') FROM users WHERE id = %s",
+        (str(user["id"]),)
+    )
+    user_row = await cur.fetchone()
+    current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    billing_mode = user_row[1] if user_row else "prepaid"
+    is_payg = (billing_mode == "payg_monthly")
 
+    if num_resumes > 0 and not is_unlimited and not is_payg:
         if current_credits < num_resumes:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet or switch to Pay-As-You-Go."
             )
 
     # 4. Insert candidate records with in-memory text (zero disk write)
@@ -170,9 +175,31 @@ async def upload_resumes(
     batch_row = await cur.fetchone()
     batch_id = str(batch_row[0])
 
-    # 6. Deduct credits upfront and log transaction (only for regular users and active resumes)
+    # 6. Deduct credits or meter usage upfront and log transaction
     if num_resumes > 0:
-        if not is_unlimited:
+        if is_unlimited:
+            # Keep unlimited credits topped up
+            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
+        elif is_payg:
+            # Pay-As-You-Go: Meter usage, increment cycle count, charge monthly @ ₹0.79/resume
+            cost_inr = round(num_resumes * 0.79, 2)
+            await cur.execute(
+                "UPDATE users SET payg_screened_count = COALESCE(payg_screened_count, 0) + %s WHERE id = %s",
+                (num_resumes, str(user["id"]))
+            )
+            await cur.execute(
+                """INSERT INTO transactions
+                   (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+                   VALUES (%s, %s, %s, 'payg_usage', 'success', %s, %s)""",
+                (
+                    str(user["id"]),
+                    -num_resumes,
+                    cost_inr,
+                    batch_id,
+                    f"PAYG Screening ({num_resumes} files) for '{job_title}' — ₹{cost_inr} accrued (@ ₹0.79 / resume)"
+                )
+            )
+        else:
             await cur.execute(
                 "UPDATE users SET credits = credits - %s WHERE id = %s",
                 (num_resumes, str(user["id"]))
@@ -188,9 +215,6 @@ async def upload_resumes(
                     f"Resume Processing ({num_resumes} files) for '{job_title}'"
                 )
             )
-        else:
-            # Keep unlimited credits topped up
-            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
 
     await conn.commit()
 
@@ -312,15 +336,20 @@ async def upload_links(
     user_email = (user.get("email") or "").lower()
     is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
 
-    if num_resumes > 0 and not is_unlimited:
-        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
-        user_row = await cur.fetchone()
-        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    await cur.execute(
+        "SELECT credits, COALESCE(billing_mode, 'prepaid') FROM users WHERE id = %s",
+        (str(user["id"]),)
+    )
+    user_row = await cur.fetchone()
+    current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    billing_mode = user_row[1] if user_row else "prepaid"
+    is_payg = (billing_mode == "payg_monthly")
 
+    if num_resumes > 0 and not is_unlimited and not is_payg:
         if current_credits < num_resumes:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet or switch to Pay-As-You-Go."
             )
 
     candidate_ids = []
@@ -350,7 +379,27 @@ async def upload_links(
     batch_id = str(batch_row[0])
 
     if num_resumes > 0:
-        if not is_unlimited:
+        if is_unlimited:
+            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
+        elif is_payg:
+            cost_inr = round(num_resumes * 0.79, 2)
+            await cur.execute(
+                "UPDATE users SET payg_screened_count = COALESCE(payg_screened_count, 0) + %s WHERE id = %s",
+                (num_resumes, str(user["id"]))
+            )
+            await cur.execute(
+                """INSERT INTO transactions
+                   (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+                   VALUES (%s, %s, %s, 'payg_usage', 'success', %s, %s)""",
+                (
+                    str(user["id"]),
+                    -num_resumes,
+                    cost_inr,
+                    batch_id,
+                    f"PAYG Screening ({num_resumes} links) for '{job_title}' — ₹{cost_inr} accrued (@ ₹0.79 / resume)"
+                )
+            )
+        else:
             await cur.execute(
                 "UPDATE users SET credits = credits - %s WHERE id = %s",
                 (num_resumes, str(user["id"]))
@@ -366,8 +415,6 @@ async def upload_links(
                     f"Resume Processing ({num_resumes} links) for '{job_title}'"
                 )
             )
-        else:
-            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
 
     await conn.commit()
 
@@ -485,15 +532,20 @@ async def import_cloud_storage(
     user_email = (user.get("email") or "").lower()
     is_unlimited = (user_email == "sanyam.karnavat5@gmail.com")
 
-    if num_resumes > 0 and not is_unlimited:
-        await cur.execute("SELECT credits FROM users WHERE id = %s", (str(user["id"]),))
-        user_row = await cur.fetchone()
-        current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    await cur.execute(
+        "SELECT credits, COALESCE(billing_mode, 'prepaid') FROM users WHERE id = %s",
+        (str(user["id"]),)
+    )
+    user_row = await cur.fetchone()
+    current_credits = user_row[0] if user_row and user_row[0] is not None else 0
+    billing_mode = user_row[1] if user_row else "prepaid"
+    is_payg = (billing_mode == "payg_monthly")
 
+    if num_resumes > 0 and not is_unlimited and not is_payg:
         if current_credits < num_resumes:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet."
+                detail=f"Insufficient resume credits. You have {current_credits} credits, but {num_resumes} are needed. Please top up your wallet or switch to Pay-As-You-Go."
             )
 
     candidate_ids = []
@@ -523,7 +575,27 @@ async def import_cloud_storage(
     batch_id = str(batch_row[0])
 
     if num_resumes > 0:
-        if not is_unlimited:
+        if is_unlimited:
+            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
+        elif is_payg:
+            cost_inr = round(num_resumes * 0.79, 2)
+            await cur.execute(
+                "UPDATE users SET payg_screened_count = COALESCE(payg_screened_count, 0) + %s WHERE id = %s",
+                (num_resumes, str(user["id"]))
+            )
+            await cur.execute(
+                """INSERT INTO transactions
+                   (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+                   VALUES (%s, %s, %s, 'payg_usage', 'success', %s, %s)""",
+                (
+                    str(user["id"]),
+                    -num_resumes,
+                    cost_inr,
+                    batch_id,
+                    f"PAYG Screening ({num_resumes} files) for '{job_title}' — ₹{cost_inr} accrued (@ ₹0.79 / resume)"
+                )
+            )
+        else:
             await cur.execute(
                 "UPDATE users SET credits = credits - %s WHERE id = %s",
                 (num_resumes, str(user["id"]))
@@ -539,8 +611,6 @@ async def import_cloud_storage(
                     f"Cloud Storage Ingestion ({num_resumes} files) for '{job_title}'"
                 )
             )
-        else:
-            await cur.execute("UPDATE users SET credits = 999999 WHERE id = %s", (str(user["id"]),))
 
     await conn.commit()
 

@@ -121,21 +121,10 @@ class CreateSubscriptionRequest(BaseModel):
 
 
 class SetupMandateRequest(BaseModel):
-    package_id: str
-    threshold: int = 5
-    contact: str
-
-    @validator("package_id")
-    def validate_package(cls, v):
-        if v not in PACKAGES:
-            raise ValueError("Invalid package_id.")
-        return v
-
-    @validator("threshold")
-    def validate_threshold(cls, v):
-        if not (1 <= v <= 100):
-            raise ValueError("Threshold must be between 1 and 100.")
-        return v
+    contact: Optional[str] = "9999999999"
+    name: Optional[str] = None
+    package_id: Optional[str] = None
+    threshold: Optional[int] = 5
 
 
 class VerifyMandateRequest(BaseModel):
@@ -144,6 +133,10 @@ class VerifyMandateRequest(BaseModel):
     razorpay_signature: str
     razorpay_customer_id: str
     razorpay_token_id: Optional[str] = None
+
+
+class SwitchBillingModeRequest(BaseModel):
+    mode: str
 
 
 # ===========================================================================
@@ -156,11 +149,22 @@ async def get_wallet_balance(user=Depends(get_current_user), db=Depends(get_db))
     is_unl = _is_unlimited(user_email)
 
     await cur.execute(
-        "SELECT credits, email, COALESCE(role, 'recruiter') FROM users WHERE id = %s",
+        """SELECT credits, email, COALESCE(role, 'recruiter'),
+                  COALESCE(billing_mode, 'prepaid'),
+                  COALESCE(payg_screened_count, 0),
+                  payg_cycle_start, payg_cycle_end,
+                  card_last4, card_network
+           FROM users WHERE id = %s""",
         (str(user["id"]),)
     )
     row = await cur.fetchone()
     user_role = row[2] if row else "recruiter"
+    billing_mode = row[3] if row else "prepaid"
+    payg_screened = row[4] if row else 0
+    payg_cycle_start = row[5] if row else None
+    payg_cycle_end = row[6] if row else None
+    card_last4 = row[7] if row else None
+    card_network = row[8] if row else None
     is_admin = (user_role == "admin" or _is_unlimited(user_email))
 
     if is_unl:
@@ -198,6 +202,19 @@ async def get_wallet_balance(user=Depends(get_current_user), db=Depends(get_db))
         "role": user_role,
         "is_admin": is_admin,
         "is_unlimited": is_unl,
+        "billing_mode": billing_mode,
+        "card_last4": card_last4,
+        "card_network": card_network,
+        "payg_details": {
+            "is_active": (billing_mode == "payg_monthly"),
+            "rate_per_resume_inr": 0.79,
+            "screened_this_cycle": payg_screened,
+            "current_accrued_inr": round(payg_screened * 0.79, 2),
+            "cycle_start": payg_cycle_start.isoformat() if payg_cycle_start else None,
+            "cycle_end": payg_cycle_end.isoformat() if payg_cycle_end else None,
+            "card_last4": card_last4,
+            "card_network": card_network,
+        },
         "packages": [
             {"id": pid, "credits": pkg["credits"], "amount_inr": pkg["amount_inr"],
              "label": pkg["label"], "cost_per_credit": round(pkg["amount_inr"] / pkg["credits"], 2)}
@@ -469,12 +486,15 @@ async def cancel_subscription(user=Depends(get_current_user), db=Depends(get_db)
 
 
 # ===========================================================================
-# MODEL 3: PAY-AS-YOU-GO (Mandate)
+# MODEL 3: PAY-AS-YOU-GO (Corporate Card Mandate & Monthly Billing)
 # ===========================================================================
 
 @router.post("/payg/create-mandate-order")
 async def create_mandate_order(req: SetupMandateRequest, user=Depends(get_current_user), db=Depends(get_db)):
-    """Step 1: Create Razorpay customer + recurring order for PAYG mandate."""
+    """
+    Step 1: Create Razorpay customer + recurring order for Corporate Card Linking.
+    Standard ₹2.00 RBI-compliant mandate authorization amount.
+    """
     conn, cur = db
     client = _get_rzp_client()
     user_email = user.get("email", "")
@@ -486,63 +506,76 @@ async def create_mandate_order(req: SetupMandateRequest, user=Depends(get_curren
     if existing and existing[0]:
         customer_id = existing[0]
     else:
+        contact = req.contact if (req.contact and len(req.contact) == 10) else "9876543210"
         try:
             customer = client.customer.create({
-                "name": user.get("name", user_email), "email": user_email,
-                "contact": req.contact, "fail_existing": "0",
+                "name": req.name or user.get("name", user_email.split("@")[0]),
+                "email": user_email,
+                "contact": contact,
+                "fail_existing": "0",
             })
             customer_id = customer["id"]
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create customer: {str(e)}")
+        except Exception:
+            try:
+                cust_list = client.customer.all({"email": user_email})
+                if cust_list and cust_list.get("items"):
+                    customer_id = cust_list["items"][0]["id"]
+                else:
+                    raise Exception("Could not create Razorpay customer profile.")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to create customer: {str(e)}")
 
-    package = PACKAGES[req.package_id]
     try:
+        # Standard ₹2.00 RBI-mandated card authorization order
         order = client.order.create({
-            "amount": package["amount_inr"] * 100,
+            "amount": 200,
             "currency": "INR",
             "receipt": f"payg_{uuid.uuid4().hex[:10]}",
-            "recurring": 1,
             "customer_id": customer_id,
             "notes": {
-                "user_id": str(user["id"]), "package_id": req.package_id,
-                "credits": package["credits"], "payment_type": "payg_setup",
+                "user_id": str(user["id"]),
+                "billing_mode": "payg_monthly",
+                "payment_type": "payg_card_link",
+                "rate_per_resume": "0.79",
             }
         })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create PAYG order: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create card mandate order: {str(e)}")
 
     await cur.execute(
         """INSERT INTO payment_mandates
-           (user_id, razorpay_customer_id, auto_topup_package_id, auto_topup_threshold, contact, is_active)
-           VALUES (%s,%s,%s,%s,%s,FALSE)
+           (user_id, razorpay_customer_id, is_active)
+           VALUES (%s, %s, FALSE)
            ON CONFLICT (user_id) DO UPDATE SET
-             razorpay_customer_id=EXCLUDED.razorpay_customer_id,
-             auto_topup_package_id=EXCLUDED.auto_topup_package_id,
-             auto_topup_threshold=EXCLUDED.auto_topup_threshold,
-             contact=EXCLUDED.contact, is_active=FALSE""",
-        (str(user["id"]), customer_id, req.package_id, req.threshold, req.contact)
+             razorpay_customer_id = EXCLUDED.razorpay_customer_id""",
+        (str(user["id"]), customer_id)
     )
     await cur.execute(
         """INSERT INTO payment_orders
            (user_id, razorpay_order_id, package_id, credits, amount_inr, amount_paise, payment_type)
-           VALUES (%s,%s,%s,%s,%s,%s,'payg')
-           ON CONFLICT (razorpay_order_id) DO NOTHING""",
-        (str(user["id"]), order["id"], req.package_id,
-         package["credits"], package["amount_inr"], package["amount_inr"] * 100)
+           VALUES (%s, %s, 'payg_mandate', 0, 2, 200, 'payg')
+           ON CONFLICT (razorpay_order_id) DO UPDATE SET
+             amount_inr = 2, amount_paise = 200, payment_type = 'payg'""",
+        (str(user["id"]), order["id"])
     )
     await conn.commit()
 
     return {
-        "order_id": order["id"], "customer_id": customer_id,
-        "amount": package["amount_inr"] * 100, "currency": "INR",
+        "order_id": order["id"],
+        "customer_id": customer_id,
+        "amount": 200,
+        "currency": "INR",
         "key_id": settings.RAZORPAY_KEY_ID,
-        "package_id": req.package_id, "threshold": req.threshold,
+        "description": "Authorize Corporate Card (₹2 Refundable Verification) for Pay-As-You-Go",
     }
 
 
 @router.post("/payg/verify-mandate")
 async def verify_mandate(req: VerifyMandateRequest, user=Depends(get_current_user), db=Depends(get_db)):
-    """Step 2: Verify first PAYG payment and activate auto-topup."""
+    """
+    Step 2: Verify card mandate authorization and activate Pay-As-You-Go Monthly billing.
+    Retrieves card brand & last 4 digits from Razorpay payment.
+    """
     conn, cur = db
     client = _get_rzp_client()
     try:
@@ -552,57 +585,278 @@ async def verify_mandate(req: VerifyMandateRequest, user=Depends(get_current_use
             "razorpay_signature": req.razorpay_signature,
         })
     except Exception:
-        raise HTTPException(status_code=400, detail="PAYG signature verification failed.")
+        raise HTTPException(status_code=400, detail="Card mandate signature verification failed.")
+
+    card_last4 = "Card"
+    card_network = "Card"
+    token_id = req.razorpay_token_id
+    try:
+        p_obj = client.payment.fetch(req.razorpay_payment_id)
+        c_obj = p_obj.get("card", {})
+        if c_obj:
+            card_last4 = str(c_obj.get("last4") or "Card")
+            card_network = str(c_obj.get("network") or "Card")
+        if not token_id:
+            token_id = p_obj.get("token_id")
+    except Exception as e:
+        logger.warning(f"Could not retrieve card metadata: {e}")
 
     await cur.execute(
-        "SELECT package_id, credits, amount_inr FROM payment_orders WHERE razorpay_order_id=%s AND user_id=%s",
-        (req.razorpay_order_id, str(user["id"]))
+        """UPDATE users
+           SET billing_mode = 'payg_monthly',
+               card_last4 = %s,
+               card_network = %s,
+               payg_cycle_start = COALESCE(payg_cycle_start, NOW()),
+               payg_cycle_end = COALESCE(payg_cycle_end, NOW() + INTERVAL '30 days'),
+               payg_screened_count = COALESCE(payg_screened_count, 0)
+           WHERE id = %s""",
+        (card_last4, card_network, str(user["id"]))
     )
-    order_row = await cur.fetchone()
-    if not order_row:
-        raise HTTPException(status_code=400, detail="Order not found.")
-
-    package_id, credits_to_add, amount_inr = order_row
 
     await cur.execute(
-        "SELECT id FROM transactions WHERE reference_id=%s AND status='success'", (req.razorpay_payment_id,)
-    )
-    if not await cur.fetchone():
-        await cur.execute(
-            "UPDATE users SET credits=credits+%s WHERE id=%s", (credits_to_add, str(user["id"]))
-        )
-        await cur.execute(
-            """INSERT INTO transactions
-               (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
-               VALUES (%s,%s,%s,'purchase','success',%s,%s)""",
-            (str(user["id"]), credits_to_add, amount_inr, req.razorpay_payment_id,
-             f"PAYG Setup: {credits_to_add} Credits (₹{amount_inr}) + Autopay Activated")
-        )
-
-    await cur.execute(
-        "UPDATE payment_mandates SET is_active=TRUE, razorpay_token_id=%s, last_charged_at=NOW() WHERE user_id=%s",
-        (req.razorpay_token_id, str(user["id"]))
+        """UPDATE payment_mandates
+           SET is_active = TRUE,
+               razorpay_token_id = COALESCE(%s, razorpay_token_id),
+               last_charged_at = NOW()
+           WHERE user_id = %s""",
+        (token_id, str(user["id"]))
     )
     await cur.execute(
-        "UPDATE payment_orders SET status='paid', razorpay_payment_id=%s, updated_at=NOW() WHERE razorpay_order_id=%s",
+        """UPDATE payment_orders
+           SET status = 'paid', razorpay_payment_id = %s, updated_at = NOW()
+           WHERE razorpay_order_id = %s""",
         (req.razorpay_payment_id, req.razorpay_order_id)
+    )
+
+    await cur.execute(
+        """INSERT INTO transactions
+           (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+           VALUES (%s, 0, 2, 'mandate_auth', 'success', %s, %s)
+           ON CONFLICT DO NOTHING""",
+        (str(user["id"]), req.razorpay_payment_id,
+         f"Corporate Card Linked ({card_network} •••• {card_last4}) — Pay-As-You-Go Monthly Active")
     )
     await conn.commit()
 
-    logger.info(f"PAYG mandate activated: user={user['id']}")
-    return {"success": True, "message": "Pay-As-You-Go activated!", "credits_added": credits_to_add}
+    logger.info(f"PAYG mandate activated: user={user['id']} card={card_network} {card_last4}")
+    return {
+        "success": True,
+        "message": f"Corporate Card ({card_network} •••• {card_last4}) linked successfully! Pay-As-You-Go is now active.",
+        "card_last4": card_last4,
+        "card_network": card_network,
+    }
+
+
+@router.post("/switch-mode")
+async def switch_billing_mode(req: SwitchBillingModeRequest, user=Depends(get_current_user), db=Depends(get_db)):
+    """
+    Self-service toggle between 'prepaid' (credits) and 'payg_monthly' (corporate card).
+    No admin intervention required.
+    """
+    conn, cur = db
+    if req.mode not in ("prepaid", "payg_monthly"):
+        raise HTTPException(status_code=400, detail="Invalid billing mode. Choose 'prepaid' or 'payg_monthly'.")
+
+    if req.mode == "payg_monthly":
+        await cur.execute(
+            "SELECT is_active, razorpay_token_id FROM payment_mandates WHERE user_id = %s",
+            (str(user["id"]),)
+        )
+        row = await cur.fetchone()
+        if not row or not row[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="Please link a corporate credit card first to enable Pay-As-You-Go."
+            )
+        await cur.execute(
+            """UPDATE users
+               SET billing_mode = 'payg_monthly',
+                   payg_cycle_start = COALESCE(payg_cycle_start, NOW()),
+                   payg_cycle_end = COALESCE(payg_cycle_end, NOW() + INTERVAL '30 days')
+               WHERE id = %s""",
+            (str(user["id"]),)
+        )
+    else:
+        await cur.execute(
+            "UPDATE users SET billing_mode = 'prepaid' WHERE id = %s",
+            (str(user["id"]),)
+        )
+
+    await conn.commit()
+    return {"success": True, "billing_mode": req.mode}
 
 
 @router.delete("/payg/mandate")
 async def disable_mandate(user=Depends(get_current_user), db=Depends(get_db)):
+    """Unlink corporate card and switch user back to Prepaid."""
     conn, cur = db
     await cur.execute(
-        "UPDATE payment_mandates SET is_active=FALSE WHERE user_id=%s RETURNING id", (str(user["id"]),)
+        "UPDATE payment_mandates SET is_active=FALSE WHERE user_id=%s RETURNING id",
+        (str(user["id"]),)
     )
-    if not await cur.fetchone():
-        raise HTTPException(status_code=404, detail="No PAYG mandate found.")
+    await cur.execute(
+        """UPDATE users
+           SET billing_mode = 'prepaid',
+               card_last4 = NULL,
+               card_network = NULL
+           WHERE id = %s""",
+        (str(user["id"]),)
+    )
     await conn.commit()
-    return {"success": True, "message": "Auto top-up disabled."}
+    return {"success": True, "message": "Corporate card unlinked. Switched back to Prepaid Credits."}
+
+
+@router.post("/payg/settle-cycle")
+async def settle_payg_cycle(user=Depends(get_current_user), db=Depends(get_db)):
+    """
+    Settle current month's accrued Pay-As-You-Go usage:
+    - Calculates payg_screened_count * 0.79
+    - Charges linked corporate card via Razorpay Recurring Payment
+    - Records monthly invoice transaction
+    - Resets payg_screened_count = 0 and advances billing cycle by 30 days
+    """
+    conn, cur = db
+    await cur.execute(
+        """SELECT COALESCE(payg_screened_count, 0), card_last4, card_network,
+                  payg_cycle_start, payg_cycle_end
+           FROM users WHERE id = %s""",
+        (str(user["id"]),)
+    )
+    u_row = await cur.fetchone()
+    if not u_row:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    screened_count, c_last4, c_network, cycle_start, cycle_end = u_row
+    amount_inr = round(screened_count * 0.79, 2)
+
+    await cur.execute(
+        "SELECT razorpay_customer_id, razorpay_token_id, is_active FROM payment_mandates WHERE user_id = %s",
+        (str(user["id"]),)
+    )
+    m_row = await cur.fetchone()
+    if not m_row or not m_row[0]:
+        raise HTTPException(status_code=400, detail="No active corporate card mandate found.")
+
+    cust_id, token_id, is_active = m_row
+
+    ref_id = f"inv_{uuid.uuid4().hex[:10]}"
+    if amount_inr > 0 and token_id:
+        client = _get_rzp_client()
+        try:
+            recur_payment = client.payment.createRecurring({
+                "email": user.get("email", ""),
+                "contact": "9999999999",
+                "amount": int(amount_inr * 100),
+                "currency": "INR",
+                "customer_id": cust_id,
+                "token": token_id,
+                "recurring": "1",
+                "description": f"PAYG Monthly Settlement: {screened_count} Resumes Screened @ ₹0.79",
+                "notes": {
+                    "user_id": str(user["id"]),
+                    "resumes_screened": screened_count,
+                    "cycle_start": cycle_start.isoformat() if cycle_start else "",
+                    "cycle_end": cycle_end.isoformat() if cycle_end else ""
+                }
+            })
+            ref_id = recur_payment.get("id", ref_id)
+        except Exception as e:
+            logger.error(f"Recurring charge failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to charge linked card: {str(e)}")
+
+    await cur.execute(
+        """INSERT INTO transactions
+           (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+           VALUES (%s, 0, %s, 'payg_settlement', 'success', %s, %s)""",
+        (
+            str(user["id"]),
+            amount_inr,
+            ref_id,
+            f"Monthly PAYG Settlement: {screened_count} Resumes Screened (₹{amount_inr} billed to {c_network or 'Card'} •••• {c_last4 or 'Card'})"
+        )
+    )
+
+    await cur.execute(
+        """UPDATE users
+           SET payg_screened_count = 0,
+               payg_cycle_start = NOW(),
+               payg_cycle_end = NOW() + INTERVAL '30 days'
+           WHERE id = %s""",
+        (str(user["id"]),)
+    )
+    await cur.execute(
+        "UPDATE payment_mandates SET last_charged_at = NOW() WHERE user_id = %s",
+        (str(user["id"]),)
+    )
+    await conn.commit()
+
+    return {
+        "success": True,
+        "message": f"Cycle settled successfully! {screened_count} resumes billed for ₹{amount_inr}.",
+        "amount_inr": amount_inr,
+        "screened_count": screened_count,
+        "reference_id": ref_id
+    }
+
+
+@router.post("/payg/process-due-invoices")
+async def process_due_invoices(db=Depends(get_db)):
+    """
+    Automated Monthly Billing Runner:
+    Checks all users on 'payg_monthly' whose 30-day billing cycle has ended (payg_cycle_end <= NOW()).
+    Charges linked cards and rolls billing cycle forward.
+    """
+    conn, cur = db
+    await cur.execute(
+        """SELECT u.id, u.email, COALESCE(u.payg_screened_count, 0),
+                  u.card_last4, u.card_network, u.payg_cycle_start, u.payg_cycle_end,
+                  m.razorpay_customer_id, m.razorpay_token_id
+           FROM users u
+           JOIN payment_mandates m ON u.id = m.user_id
+           WHERE u.billing_mode = 'payg_monthly'
+             AND u.payg_cycle_end <= NOW()
+             AND m.is_active = TRUE"""
+    )
+    rows = await cur.fetchall()
+    results = []
+    for r in rows:
+        uid, email, screened, c_last4, c_net, c_start, c_end, cust_id, token_id = r
+        cost = round(screened * 0.79, 2)
+        ref_id = f"inv_{uuid.uuid4().hex[:10]}"
+        if cost > 0 and token_id:
+            client = _get_rzp_client()
+            try:
+                res = client.payment.createRecurring({
+                    "email": email or "", "contact": "9999999999",
+                    "amount": int(cost * 100), "currency": "INR",
+                    "customer_id": cust_id, "token": token_id, "recurring": "1",
+                    "description": f"Monthly PAYG Settlement: {screened} Resumes Screened @ ₹0.79"
+                })
+                ref_id = res.get("id", ref_id)
+            except Exception as e:
+                logger.error(f"Failed to charge user {uid}: {e}")
+                continue
+
+        if cost > 0:
+            await cur.execute(
+                """INSERT INTO transactions
+                   (user_id, amount_credits, amount_inr, transaction_type, status, reference_id, description)
+                   VALUES (%s, 0, %s, 'payg_settlement', 'success', %s, %s)""",
+                (str(uid), cost, ref_id, f"Monthly PAYG Settlement: {screened} Resumes Screened (₹{cost} billed to {c_net or 'Card'} •••• {c_last4 or 'Card'})")
+            )
+        await cur.execute(
+            """UPDATE users
+               SET payg_screened_count = 0,
+                   payg_cycle_start = NOW(),
+                   payg_cycle_end = NOW() + INTERVAL '30 days'
+               WHERE id = %s""",
+            (str(uid),)
+        )
+        await cur.execute("UPDATE payment_mandates SET last_charged_at = NOW() WHERE user_id = %s", (str(uid),))
+        results.append({"user_id": str(uid), "amount_inr": cost, "screened_count": screened, "reference_id": ref_id})
+
+    await conn.commit()
+    return {"processed_count": len(results), "invoices": results}
 
 
 @router.get("/payg/mandate")
@@ -615,9 +869,12 @@ async def get_mandate(user=Depends(get_current_user), db=Depends(get_db)):
     row = await cur.fetchone()
     if not row:
         return {"has_mandate": False}
-    return {"has_mandate": True, "package_id": row[0], "threshold": row[1],
-            "is_active": row[2], "contact": row[3],
-            "last_charged_at": row[4].isoformat() if row[4] else None}
+    return {
+        "has_mandate": True,
+        "is_active": row[2],
+        "contact": row[3],
+        "last_charged_at": row[4].isoformat() if row[4] else None
+    }
 
 
 # ===========================================================================
