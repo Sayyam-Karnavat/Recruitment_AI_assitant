@@ -74,7 +74,8 @@ async def download_file_from_url(url: str, custom_headers: dict | None = None) -
             url = f"{url}{sep}download=1"
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "User-Agent": "UppshotBot/1.0 (https://uppshot.com; support@uppshot.com) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
+        "Accept": "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*",
     }
     if custom_headers:
         headers.update(custom_headers)
