@@ -82,7 +82,24 @@ async def download_file_from_url(url: str, custom_headers: dict | None = None) -
     async with httpx.AsyncClient(follow_redirects=True, timeout=35.0) as client:
         logger.info(f"Downloading from verified URL: {url}")
         resp = await client.get(url, headers=headers)
-        resp.raise_for_status()
+        
+        if resp.status_code != 200:
+            err_detail = resp.text
+            try:
+                err_data = resp.json()
+                msg = err_data.get("error", {}).get("message")
+                if msg:
+                    err_detail = msg
+            except Exception:
+                pass
+
+            if resp.status_code == 403:
+                if "has not been used in project" in err_detail.lower() or "disabled" in err_detail.lower():
+                    raise ValueError(
+                        f"Google Drive API is not enabled in your Google Cloud Project. Enable 'Google Drive API' in Google Cloud Console → APIs & Services → Library."
+                    )
+                raise ValueError(f"Google Drive 403 Forbidden: {err_detail}")
+            resp.raise_for_status()
 
         # Check if Google served a virus scan confirmation page instead of the file
         if "drive.google.com" in url and "Google Drive - Virus scan warning" in resp.text:

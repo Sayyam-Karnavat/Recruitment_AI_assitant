@@ -89,6 +89,8 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
             )
             .setIncludeFolders(true);
 
+          const appId = googleClientId ? googleClientId.split('-')[0] : '';
+
           const pickerBuilder = new (window as any).google.picker.PickerBuilder()
             .enableFeature((window as any).google.picker.Feature.MULTISELECT_ENABLED)
             .setOAuthToken(accessToken)
@@ -110,6 +112,10 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
                 setSuccessMsg(`Added ${picked.length} file(s) from Google Drive.`);
               }
             });
+
+          if (appId) {
+            pickerBuilder.setAppId(appId);
+          }
 
           if (googlePickerKey) {
             pickerBuilder.setDeveloperKey(googlePickerKey);
@@ -134,7 +140,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
     try {
       const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
         client_id: googleClientId,
-        scope: 'https://www.googleapis.com/auth/drive.file',
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
         callback: (response: any) => {
           if (response.error) {
             setIsLoadingSdk(false);
