@@ -93,12 +93,28 @@ async def download_file_from_url(url: str, custom_headers: dict | None = None) -
             except Exception:
                 pass
 
+            is_gdrive = "drive.google.com" in url or "googleapis.com" in url
+
             if resp.status_code == 403:
-                if "has not been used in project" in err_detail.lower() or "disabled" in err_detail.lower():
+                if is_gdrive:
+                    if "has not been used in project" in err_detail.lower() or "disabled" in err_detail.lower():
+                        raise ValueError(
+                            "Google Drive API is not enabled in your Google Cloud Project. Enable 'Google Drive API' in Google Cloud Console → APIs & Services → Library."
+                        )
                     raise ValueError(
-                        f"Google Drive API is not enabled in your Google Cloud Project. Enable 'Google Drive API' in Google Cloud Console → APIs & Services → Library."
+                        "Google Drive access denied (HTTP 403). If using a share link, ensure the file permission is set to 'Anyone with the link can view', or use the 'Connect Google Drive' button to authenticate."
                     )
-                raise ValueError(f"Google Drive 403 Forbidden: {err_detail}")
+                raise ValueError(
+                    f"Access Forbidden (HTTP 403): The remote server denied access to this file. It may require authentication or permissions."
+                )
+            elif resp.status_code == 404:
+                raise ValueError(
+                    "File not found (HTTP 404): The provided URL does not exist or has expired."
+                )
+            elif resp.status_code == 401:
+                raise ValueError(
+                    "Unauthorized (HTTP 401): The link requires a login or authorization credentials."
+                )
             resp.raise_for_status()
 
         # Check if Google served a virus scan confirmation page instead of the file

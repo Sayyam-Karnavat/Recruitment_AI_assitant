@@ -247,35 +247,60 @@ async def upload_links(
             if await cur.fetchone():
                 continue
 
-            if is_zip_file(filename):
-                extracted_items = extract_files_from_zip_in_memory(raw_bytes)
-                for name, item_bytes in extracted_items:
-                    item_hash = compute_file_hash(item_bytes)
-                    is_valid, err_msg = validate_resume_bytes(item_bytes, name)
-                    if not is_valid:
-                        invalid_items.append((name, item_hash, err_msg))
-                        continue
+            # 1. Block ZIP archives from public URLs (exploit / zip bomb defense)
+            if is_zip_file(filename) or (raw_bytes.startswith(b"PK\x03\x04") and not filename.lower().endswith(".docx")):
+                invalid_items.append((
+                    filename,
+                    f_hash,
+                    "ZIP archives via remote public links are disabled for security reasons (ZIP bomb and decompression exploit protection). Please upload ZIP files directly from your computer, or provide direct links to individual PDF or DOCX resumes."
+                ))
+                continue
 
-                    text = extract_text_from_bytes(item_bytes, name)
-                    if not text or len(text.strip()) < 50:
-                        invalid_items.append((name, item_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
-                        continue
-                    items_to_process.append((name, item_hash, text))
+            # 2. Detect if link returned an HTML web page / login portal instead of a raw document
+            stripped_start = raw_bytes[:1024].lstrip().lower()
+            if (
+                stripped_start.startswith(b"<!doctype html")
+                or stripped_start.startswith(b"<html")
+                or stripped_start.startswith(b"<head")
+                or (b"<body" in stripped_start and b"<script" in stripped_start)
+            ):
+                invalid_items.append((
+                    filename,
+                    f_hash,
+                    "The link returned an HTML web page or login portal instead of a direct PDF/DOCX file. For Google Drive or OneDrive, ensure permissions are set to 'Anyone with the link can view' or use the Cloud Drive button."
+                ))
+                continue
 
-            elif is_valid_resume_file(filename):
-                is_valid, err_msg = validate_resume_bytes(raw_bytes, filename)
-                if not is_valid:
-                    invalid_items.append((filename, f_hash, err_msg))
-                    continue
+            # 3. Detect file type: Must be PDF or DOCX
+            is_pdf = raw_bytes.startswith(b"%PDF") or filename.lower().endswith(".pdf")
+            is_docx = (raw_bytes.startswith(b"PK\x03\x04") and filename.lower().endswith(".docx")) or filename.lower().endswith(".docx")
 
-                text = extract_text_from_bytes(raw_bytes, filename)
-                if not text or len(text.strip()) < 50:
-                    invalid_items.append((filename, f_hash, "Scanned image PDF detected — no selectable text found. Please upload a text-based document."))
-                    continue
-                items_to_process.append((filename, f_hash, text))
-            else:
+            if not (is_pdf or is_docx):
                 ext = Path(filename).suffix or "unknown"
-                invalid_items.append((filename, f_hash, f"File format '{ext}' downloaded from link is not a supported PDF or DOCX resume."))
+                invalid_items.append((
+                    filename,
+                    f_hash,
+                    f"File format '{ext}' downloaded from link is not a supported resume document. Only direct PDF (.pdf) and Word (.docx) files are supported."
+                ))
+                continue
+
+            # 4. In-memory validation (<10MB, page count, parseable)
+            is_valid, err_msg = validate_resume_bytes(raw_bytes, filename)
+            if not is_valid:
+                invalid_items.append((filename, f_hash, err_msg))
+                continue
+
+            # 5. Text extraction & scanned image detection
+            text = extract_text_from_bytes(raw_bytes, filename)
+            if not text or len(text.strip()) < 50:
+                invalid_items.append((
+                    filename,
+                    f_hash,
+                    "Scanned image PDF detected — no selectable text found. Please upload a text-based document."
+                ))
+                continue
+
+            items_to_process.append((filename, f_hash, text))
         except Exception as e:
             invalid_items.append((url, compute_file_hash(url.encode()), f"Failed to ingest link: {str(e)}"))
             continue

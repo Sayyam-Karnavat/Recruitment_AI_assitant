@@ -846,15 +846,20 @@ export default function JobDetail() {
 
               {/* Quick direct links form */}
               <div className="space-y-2 pt-1">
-                <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
-                  Quick Import via Public Link
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Quick Import via Public Link
+                  </span>
+                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-medium">
+                    PDF & DOCX only • ZIP via URL disabled
+                  </span>
+                </div>
                 <form onSubmit={handleUrlSubmit} className="flex gap-2">
                   <input
                     type="text"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="Paste public PDF URLs, Google Drive, or OneDrive share links (comma separated)"
+                    placeholder="Paste direct PDF/DOCX links, Google Drive, or OneDrive links (comma separated)"
                     className="field flex-1 text-xs"
                     disabled={uploading}
                   />
@@ -866,6 +871,9 @@ export default function JobDetail() {
                     Fetch Link
                   </button>
                 </form>
+                <p className="text-[11px] text-slate-400">
+                  Ensure shared cloud links are set to &quot;Anyone with the link can view&quot;. For security against exploits, remote ZIP links are disabled (upload ZIP files directly via the dropzone above).
+                </p>
               </div>
             </div>
           )}
