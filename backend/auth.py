@@ -111,3 +111,19 @@ async def verify_admin_user(
             detail="Invalid or expired admin session. Please log in to Admin Portal."
         )
 
+
+def verify_google_token_payload(token_str: str) -> dict:
+    """Verify a Google OAuth ID token, supporting single or comma-separated client IDs."""
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+
+    raw_cids = getattr(settings, "GOOGLE_CLIENT_ID", "") or ""
+    allowed_cids = [cid.strip() for cid in raw_cids.split(",") if cid.strip()]
+
+    if len(allowed_cids) == 1:
+        return id_token.verify_oauth2_token(token_str, google_requests.Request(), allowed_cids[0])
+
+    idinfo = id_token.verify_oauth2_token(token_str, google_requests.Request(), None)
+    if allowed_cids and idinfo.get("aud") not in allowed_cids:
+        raise ValueError(f"Token audience {idinfo.get('aud')} does not match allowed client IDs")
+    return idinfo

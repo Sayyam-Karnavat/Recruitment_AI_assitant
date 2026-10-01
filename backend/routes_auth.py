@@ -7,7 +7,7 @@ import httpx
 
 from database import get_db
 from schemas import TokenResponse, UserResponse
-from auth import create_access_token, get_current_user
+from auth import create_access_token, get_current_user, verify_google_token_payload
 from config import settings
 from rate_limiter import check_rate_limit, get_client_ip
 import logging
@@ -149,7 +149,7 @@ async def google_auth(body: GoogleAuthRequest, request: Request, db=Depends(get_
 
     try:
         # Verify Google token
-        idinfo = id_token.verify_oauth2_token(body.token, requests.Request(), settings.GOOGLE_CLIENT_ID)
+        idinfo = verify_google_token_payload(body.token)
         email = idinfo.get("email")
         if not email:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No email found in token")

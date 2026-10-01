@@ -15,6 +15,7 @@ import logging
 
 from database import get_db
 from config import settings
+from auth import verify_google_token_payload
 from file_parser import compute_file_hash, is_valid_resume_file, validate_resume_bytes, extract_text_from_bytes
 from queue_manager import enqueue_batch_task
 from rate_limiter import check_rate_limit, get_client_ip
@@ -186,9 +187,7 @@ async def get_my_application(
 
     if google_token:
         try:
-            idinfo = id_token.verify_oauth2_token(
-                google_token, requests.Request(), settings.GOOGLE_CLIENT_ID
-            )
+            idinfo = verify_google_token_payload(google_token)
             candidate_email = idinfo.get("email")
             is_verified_session = True
         except Exception:
@@ -365,9 +364,7 @@ async def apply_to_job(
     candidate_picture: Optional[str] = None
 
     try:
-        idinfo = id_token.verify_oauth2_token(
-            google_token, requests.Request(), settings.GOOGLE_CLIENT_ID
-        )
+        idinfo = verify_google_token_payload(google_token)
         candidate_email = idinfo.get("email")
         candidate_name = idinfo.get("name")
         candidate_picture = idinfo.get("picture")
