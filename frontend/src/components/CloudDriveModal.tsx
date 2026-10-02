@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Cloud, CheckCircle2, Trash2, Loader2, ArrowRight, AlertCircle, FileText, Check, ExternalLink, HelpCircle } from 'lucide-react';
+import { X, Cloud, CheckCircle2, Trash2, Loader2, ArrowRight, AlertCircle, FileText, Check, ExternalLink, HelpCircle, Plus, Link2 } from 'lucide-react';
 import api from '../services/api';
 
 export interface SelectedCloudFile {
@@ -31,7 +31,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoadingSdk, setIsLoadingSdk] = useState(false);
-  const [manualLinks, setManualLinks] = useState('');
+  const [manualLinkInputs, setManualLinkInputs] = useState<string[]>(['']);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
   const googlePickerKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY || '';
@@ -216,37 +216,95 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
     }
   };
 
-  // Add manual cloud links (e.g. pasted shared links)
+  // Manage dynamic manual link inputs with auto-split on paste
+  const handleManualLinkChange = (index: number, val: string) => {
+    const parts = val.split(/[\n,]/).map((s) => s.trim()).filter((s) => s.length > 0);
+    if (parts.length > 1) {
+      setManualLinkInputs((prev) => {
+        const next = [...prev];
+        next.splice(index, 1, ...parts);
+        return next;
+      });
+      return;
+    }
+    setManualLinkInputs((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  };
+
+  const addManualLinkRow = () => {
+    setManualLinkInputs((prev) => [...prev, '']);
+  };
+
+  const removeManualLinkRow = (index: number) => {
+    setManualLinkInputs((prev) => {
+      if (prev.length <= 1) return [''];
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // Add manual cloud links to selection staging
   const handleAddManualLinks = () => {
-    if (!manualLinks.trim()) return;
-    const urls = manualLinks
-      .split('\n')
+    const urls = manualLinkInputs
       .map((u) => u.trim())
       .filter((u) => u.length > 5);
 
     if (urls.length === 0) return;
 
     const newItems: SelectedCloudFile[] = urls.map((u, i) => {
-      let isGdrive = u.includes('drive.google.com');
-      let isOneDrive = u.includes('1drv.ms') || u.includes('sharepoint.com');
-      const filename = u.split('/').pop()?.split('?')[0] || `Link_Item_${Date.now()}_${i + 1}`;
+      const isGdrive = u.includes('drive.google.com') || u.includes('docs.google.com');
+      const isOneDrive = u.includes('1drv.ms') || u.includes('sharepoint.com');
+
+      let fileId: string | undefined = undefined;
+      const gMatch = u.match(/\/d\/([a-zA-Z0-9_-]+)/) || u.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (gMatch) {
+        fileId = gMatch[1];
+      }
+
+      const defaultName = fileId ? `Google_Drive_${fileId.slice(0, 8)}.pdf` : `Resume_Link_${Date.now()}_${i + 1}.pdf`;
 
       return {
-        id: `manual_${Date.now()}_${i}`,
-        name: filename.includes('.') ? filename : `${filename}.pdf`,
+        id: fileId || `manual_${Date.now()}_${i}`,
+        name: defaultName,
         downloadUrl: u,
-        source: isGdrive ? 'google' : 'onedrive',
+        source: isGdrive ? 'google' : (isOneDrive ? 'onedrive' : activeTab),
       };
     });
 
     setSelectedFiles((prev) => [...prev, ...newItems]);
-    setManualLinks('');
-    setSuccessMsg(`Added ${newItems.length} cloud link(s) to staging queue.`);
+    setManualLinkInputs(['']);
+    setSuccessMsg(`Added ${newItems.length} cloud link(s) to selection. Click "Ingest & Screen" below to process.`);
   };
 
   // Submit staged files for in-memory ingestion
   const handleStartIngest = async () => {
-    if (selectedFiles.length === 0) return;
+    // Automatically merge any valid URLs currently typed into the input boxes
+    const pendingUrls = manualLinkInputs
+      .map((u) => u.trim())
+      .filter((u) => u.length > 5);
+
+    let allFiles = [...selectedFiles];
+    if (pendingUrls.length > 0) {
+      const extraItems: SelectedCloudFile[] = pendingUrls.map((u, i) => {
+        const isGdrive = u.includes('drive.google.com') || u.includes('docs.google.com');
+        const isOneDrive = u.includes('1drv.ms') || u.includes('sharepoint.com');
+        let fileId: string | undefined = undefined;
+        const gMatch = u.match(/\/d\/([a-zA-Z0-9_-]+)/) || u.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (gMatch) fileId = gMatch[1];
+        const defaultName = fileId ? `Google_Drive_${fileId.slice(0, 8)}.pdf` : `Resume_Link_${Date.now()}_${i + 1}.pdf`;
+        return {
+          id: fileId || `manual_${Date.now()}_${i}`,
+          name: defaultName,
+          downloadUrl: u,
+          source: isGdrive ? 'google' : (isOneDrive ? 'onedrive' : activeTab),
+        };
+      });
+      allFiles = [...allFiles, ...extraItems];
+    }
+
+    if (allFiles.length === 0) return;
 
     setIsIngesting(true);
     setErrorMsg(null);
@@ -254,7 +312,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
 
     try {
       const payload = {
-        files: selectedFiles.map((f) => ({
+        files: allFiles.map((f) => ({
           id: f.id.startsWith('manual_') ? undefined : f.id,
           name: f.name,
           download_url: f.downloadUrl,
@@ -382,27 +440,72 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
                 </button>
               </div>
 
-              {/* Alternative direct link paste */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Or Paste Google Drive Shared Links (one per line):
-                </label>
-                <textarea
-                  rows={2}
-                  value={manualLinks}
-                  onChange={(e) => setManualLinks(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/1ABCxyz/view?usp=sharing"
-                  className="field w-full text-xs font-mono"
-                  disabled={isIngesting}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddManualLinks}
-                  disabled={!manualLinks.trim() || isIngesting}
-                  className="btn btn-secondary text-xs py-1.5 px-3 w-full"
-                >
-                  Add Links to Selection
-                </button>
+              {/* Dynamic Google Drive shared link inputs */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Paste Google Drive Shared Links</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    &quot;Anyone with the link can view&quot;
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {manualLinkInputs.map((link, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="url"
+                          value={link}
+                          onChange={(e) => handleManualLinkChange(idx, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addManualLinkRow();
+                            }
+                          }}
+                          placeholder="https://drive.google.com/file/d/1ABCxyz/view?usp=sharing"
+                          className="field w-full text-xs font-mono py-2"
+                          disabled={isIngesting}
+                        />
+                      </div>
+                      {manualLinkInputs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeManualLinkRow(idx)}
+                          disabled={isIngesting}
+                          title="Remove this link"
+                          className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={addManualLinkRow}
+                    disabled={isIngesting}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50/60 px-2.5 py-1.5 rounded-lg border border-dashed border-brand-300 hover:border-brand-400 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Another Link</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddManualLinks}
+                    disabled={manualLinkInputs.every((u) => !u.trim()) || isIngesting}
+                    className="btn btn-secondary text-xs py-1.5 px-3"
+                  >
+                    Add to Selection
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -440,27 +543,72 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
                 </button>
               </div>
 
-              {/* Alternative direct link paste */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Or Paste OneDrive / SharePoint Links (one per line):
-                </label>
-                <textarea
-                  rows={2}
-                  value={manualLinks}
-                  onChange={(e) => setManualLinks(e.target.value)}
-                  placeholder="https://1drv.ms/u/s!... or https://company-my.sharepoint.com/:f:/..."
-                  className="field w-full text-xs font-mono"
-                  disabled={isIngesting}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddManualLinks}
-                  disabled={!manualLinks.trim() || isIngesting}
-                  className="btn btn-secondary text-xs py-1.5 px-3 w-full"
-                >
-                  Add Links to Selection
-                </button>
+              {/* Dynamic OneDrive shared link inputs */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Paste OneDrive or SharePoint Shared Links</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    &quot;Anyone with the link can view&quot;
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {manualLinkInputs.map((link, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="url"
+                          value={link}
+                          onChange={(e) => handleManualLinkChange(idx, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addManualLinkRow();
+                            }
+                          }}
+                          placeholder="https://1drv.ms/b/s!... or https://company-my.sharepoint.com/:b:/g/personal/..."
+                          className="field w-full text-xs font-mono py-2"
+                          disabled={isIngesting}
+                        />
+                      </div>
+                      {manualLinkInputs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeManualLinkRow(idx)}
+                          disabled={isIngesting}
+                          title="Remove this link"
+                          className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={addManualLinkRow}
+                    disabled={isIngesting}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50/60 px-2.5 py-1.5 rounded-lg border border-dashed border-blue-300 hover:border-blue-400 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Another Link</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddManualLinks}
+                    disabled={manualLinkInputs.every((u) => !u.trim()) || isIngesting}
+                    className="btn btn-secondary text-xs py-1.5 px-3"
+                  >
+                    Add to Selection
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -525,24 +673,30 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleStartIngest}
-              disabled={isIngesting || selectedFiles.length === 0}
-              className="btn btn-primary text-xs px-4 py-2 flex items-center gap-2 shadow-xs"
-            >
-              {isIngesting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Ingesting ({selectedFiles.length})...</span>
-                </>
-              ) : (
-                <>
-                  <span>Ingest & Screen ({selectedFiles.length})</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
+            {(() => {
+              const pendingValidCount = manualLinkInputs.filter((u) => u.trim().length > 5).length;
+              const totalCount = selectedFiles.length + pendingValidCount;
+              return (
+                <button
+                  type="button"
+                  onClick={handleStartIngest}
+                  disabled={isIngesting || totalCount === 0}
+                  className="btn btn-primary text-xs px-4 py-2 flex items-center gap-2 shadow-xs"
+                >
+                  {isIngesting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Ingesting ({totalCount})...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Ingest & Screen ({totalCount})</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>

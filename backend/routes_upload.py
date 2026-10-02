@@ -1,3 +1,5 @@
+import re
+import logging
 from uuid import UUID
 from typing import Optional
 from pathlib import Path
@@ -18,6 +20,8 @@ from file_parser import (
 )
 from queue_manager import enqueue_batch_task
 from url_downloader import download_file_from_url
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -271,6 +275,13 @@ async def upload_links(
             if await cur.fetchone():
                 continue
 
+            # Normalize extension based on binary magic bytes
+            is_docx_bytes = raw_bytes.startswith(b"PK\x03\x04") and (b"word/" in raw_bytes[:4096] or b"[Content_Types].xml" in raw_bytes[:4096])
+            if is_docx_bytes and not filename.lower().endswith(".docx"):
+                filename = f"{Path(filename).stem}.docx"
+            elif raw_bytes.startswith(b"%PDF") and not filename.lower().endswith(".pdf"):
+                filename = f"{Path(filename).stem}.pdf"
+
             # 1. Block ZIP archives from public URLs (exploit / zip bomb defense)
             if is_zip_file(filename) or (raw_bytes.startswith(b"PK\x03\x04") and not filename.lower().endswith(".docx")):
                 invalid_items.append((
@@ -463,30 +474,68 @@ async def import_cloud_storage(
         filename = item.name or "cloud_resume"
         raw_bytes: bytes | None = None
         custom_headers = None
+        downloaded_name: str | None = None
+        file_id: str | None = item.id
 
         try:
             if item.source == "google":
-                if not item.id:
-                    invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing Google Drive file ID."))
-                    continue
-                if not req.google_access_token:
-                    invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing Google authorization token."))
-                    continue
-                url = f"https://www.googleapis.com/drive/v3/files/{item.id}?alt=media"
-                custom_headers = {"Authorization": f"Bearer {req.google_access_token}"}
-                raw_bytes, _ = await download_file_from_url(url, custom_headers=custom_headers)
+                # Extract file ID from download_url if not explicitly provided
+                if (not file_id or file_id.startswith("manual_")) and item.download_url:
+                    m = re.search(r"/d/([a-zA-Z0-9_-]+)", item.download_url) or re.search(r"[?&]id=([a-zA-Z0-9_-]+)", item.download_url)
+                    if m:
+                        file_id = m.group(1)
+
+                # 1. Try authenticated Google Drive API first if token and file_id exist
+                if file_id and req.google_access_token:
+                    url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+                    custom_headers = {"Authorization": f"Bearer {req.google_access_token}"}
+                    try:
+                        raw_bytes, downloaded_name = await download_file_from_url(url, custom_headers=custom_headers)
+                    except Exception as g_err:
+                        logger.warning(f"Google Drive API download failed, falling back to public link: {g_err}")
+                        raw_bytes = None
+
+                # 2. Fallback to direct public URL download (via download_url or public uc download)
+                if not raw_bytes:
+                    dl_url = item.download_url
+                    if not dl_url and file_id:
+                        dl_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+                    if not dl_url:
+                        invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing Google Drive file ID or shared link."))
+                        continue
+
+                    raw_bytes, downloaded_name = await download_file_from_url(dl_url)
+
             elif item.source == "onedrive":
                 if not item.download_url:
                     invalid_items.append((filename, compute_file_hash(filename.encode()), "Missing OneDrive download URL."))
                     continue
-                raw_bytes, _ = await download_file_from_url(item.download_url)
+                raw_bytes, downloaded_name = await download_file_from_url(item.download_url)
             else:
-                invalid_items.append((filename, compute_file_hash(filename.encode()), f"Unsupported storage provider: '{item.source}'"))
-                continue
+                if item.download_url:
+                    raw_bytes, downloaded_name = await download_file_from_url(item.download_url)
+                else:
+                    invalid_items.append((filename, compute_file_hash(filename.encode()), f"Unsupported storage provider: '{item.source}'"))
+                    continue
 
             if not raw_bytes:
                 invalid_items.append((filename, compute_file_hash(filename.encode()), "Downloaded empty file content."))
                 continue
+
+            # Update filename if a better one was extracted from Content-Disposition header
+            if downloaded_name and downloaded_name.lower() not in ("view", "view.pdf", "uc", "uc.pdf", "downloaded_resume", "cloud_resume", ""):
+                filename = downloaded_name
+            elif filename in ("view", "view.pdf", "cloud_resume", "downloaded_resume") and item.source == "google":
+                safe_id = (file_id or "file")[:8]
+                filename = f"Google_Drive_Doc_{safe_id}.pdf"
+
+            # Normalize extension based on binary magic bytes
+            is_docx_bytes = raw_bytes.startswith(b"PK\x03\x04") and (b"word/" in raw_bytes[:4096] or b"[Content_Types].xml" in raw_bytes[:4096])
+            if is_docx_bytes and not filename.lower().endswith(".docx"):
+                filename = f"{Path(filename).stem}.docx"
+            elif raw_bytes.startswith(b"%PDF") and not filename.lower().endswith(".pdf"):
+                filename = f"{Path(filename).stem}.pdf"
 
             f_hash = compute_file_hash(raw_bytes)
             await cur.execute(
@@ -494,6 +543,21 @@ async def import_cloud_storage(
                 (str(job_id), f_hash)
             )
             if await cur.fetchone():
+                continue
+
+            # Detect if link returned an HTML web page / login portal instead of a raw document
+            stripped_start = raw_bytes[:1024].lstrip().lower()
+            if (
+                stripped_start.startswith(b"<!doctype html")
+                or stripped_start.startswith(b"<html")
+                or stripped_start.startswith(b"<head")
+                or (b"<body" in stripped_start and b"<script" in stripped_start)
+            ):
+                invalid_items.append((
+                    filename,
+                    f_hash,
+                    "The Google Drive link returned a private web page or login portal instead of the file. Please ensure the file sharing setting is set to 'Anyone with the link can view'."
+                ))
                 continue
 
             if is_zip_file(filename):

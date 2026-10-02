@@ -7,7 +7,7 @@ import {
   Loader2, ChevronLeft, Download, CheckCircle, XCircle, Clock, Trash2,
   Power, Search, X, Share2, CreditCard, Sparkles, UploadCloud, FileText,
   Users, Award, TrendingUp, Check, ExternalLink, Link2, Copy, Filter,
-  ChevronDown, ChevronUp, Pencil, AlertTriangle
+  ChevronDown, ChevronUp, Pencil, AlertTriangle, Plus, ArrowRight
 } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import { CloudDriveModal } from '../components/CloudDriveModal'
@@ -71,7 +71,7 @@ export default function JobDetail() {
   const [batchId, setBatchId] = useState<string | null>(null)
   const [batchProgress, setBatchProgress] = useState({ processed: 0, total: 0 })
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [urlInput, setUrlInput] = useState('')
+  const [linkInputs, setLinkInputs] = useState<string[]>([''])
   const [showCloudModal, setShowCloudModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
@@ -367,11 +367,42 @@ export default function JobDetail() {
     }
   }, [id, refreshBalance])
 
+  const handleLinkInputChange = (index: number, val: string) => {
+    // Intelligently auto-expand if user pastes multiple links (newline or comma separated)
+    const parts = val.split(/[\n,]/).map((s) => s.trim()).filter((s) => s.length > 0)
+    if (parts.length > 1) {
+      setLinkInputs((prev) => {
+        const next = [...prev]
+        next.splice(index, 1, ...parts)
+        return next
+      })
+      return
+    }
+    setLinkInputs((prev) => {
+      const next = [...prev]
+      next[index] = val
+      return next
+    })
+  }
+
+  const addLinkInputRow = () => {
+    setLinkInputs((prev) => [...prev, ''])
+  }
+
+  const removeLinkInputRow = (index: number) => {
+    setLinkInputs((prev) => {
+      if (prev.length <= 1) return ['']
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  const clearAllLinkInputs = () => {
+    setLinkInputs([''])
+  }
+
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!urlInput.trim()) return
-
-    const urls = urlInput.split(',').map(u => u.trim()).filter(u => u)
+    const urls = linkInputs.map((u) => u.trim()).filter((u) => u.length > 5)
     if (urls.length === 0) return
 
     setUploadError(null)
@@ -380,7 +411,7 @@ export default function JobDetail() {
       const res = await api.post(`/jobs/${id}/upload-links`, { urls })
       setBatchId(res.data.batch_id)
       setBatchProgress({ processed: 0, total: res.data.total_files })
-      setUrlInput('')
+      setLinkInputs([''])
       refreshBalance()
       setActiveTab('candidates')
       fetchCandidates()
@@ -845,33 +876,101 @@ export default function JobDetail() {
               </div>
 
               {/* Quick direct links form */}
-              <div className="space-y-2 pt-1">
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Quick Import via Public Link
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-brand-600" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Quick Import via Public Link
+                    </span>
+                  </div>
                   <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-medium">
                     PDF & DOCX only • ZIP via URL disabled
                   </span>
                 </div>
-                <form onSubmit={handleUrlSubmit} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="Paste direct PDF/DOCX links, Google Drive, or OneDrive links (comma separated)"
-                    className="field flex-1 text-xs"
-                    disabled={uploading}
-                  />
-                  <button
-                    type="submit"
-                    disabled={uploading || !urlInput.trim()}
-                    className="btn btn-secondary text-xs px-4"
-                  >
-                    Fetch Link
-                  </button>
+
+                <form onSubmit={handleUrlSubmit} className="space-y-2.5">
+                  <div className="space-y-2">
+                    {linkInputs.map((link, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="url"
+                            value={link}
+                            onChange={(e) => handleLinkInputChange(idx, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                addLinkInputRow()
+                              }
+                            }}
+                            placeholder="Paste direct PDF/DOCX link, Google Drive, or OneDrive shared link"
+                            className="field w-full text-xs font-mono py-2"
+                            disabled={uploading}
+                          />
+                        </div>
+                        {linkInputs.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeLinkInputRow(idx)}
+                            disabled={uploading}
+                            title="Remove this link"
+                            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={addLinkInputRow}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50/60 px-3 py-1.5 rounded-lg border border-dashed border-brand-300 hover:border-brand-400 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Another Link</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {linkInputs.some((u) => u.trim()) && linkInputs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={clearAllLinkInputs}
+                          disabled={uploading}
+                          className="text-[11px] font-medium text-slate-400 hover:text-slate-600 px-2 py-1"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={uploading || linkInputs.every((u) => !u.trim())}
+                        className="btn btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Ingesting...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                            {(() => {
+                              const count = linkInputs.filter((u) => u.trim().length > 5).length
+                              return count > 0 ? `Import ${count} ${count === 1 ? 'Link' : 'Links'}` : 'Import Links'
+                            })()}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </form>
-                <p className="text-[11px] text-slate-400">
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">
                   Ensure shared cloud links are set to &quot;Anyone with the link can view&quot;. For security against exploits, remote ZIP links are disabled (upload ZIP files directly via the dropzone above).
                 </p>
               </div>

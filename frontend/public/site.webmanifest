@@ -1,5 +1,5 @@
 {
-  "name": "Uppshot — AI Resume Screening",
+  "name": "Uppshot",
   "short_name": "Uppshot",
   "icons": [
     {
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#0A0E1A",
-  "background_color": "#0A0E1A",
+  "theme_color": "#267588",
+  "background_color": "#03091e",
   "display": "standalone"
 }
