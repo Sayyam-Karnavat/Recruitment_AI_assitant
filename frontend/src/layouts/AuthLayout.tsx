@@ -4,12 +4,11 @@ import { useAuth } from '../hooks/useAuth'
 import { LayoutDashboard, Settings as SettingsIcon, LogOut, Menu, X, ChevronLeft, Code2, Sparkles, Infinity as InfinityIcon, ShieldCheck, User, ChevronDown, CreditCard } from 'lucide-react'
 import { useWallet } from '../context/WalletContext'
 import WalletModal from '../components/WalletModal'
+import BrandLogo from '../components/BrandLogo'
 
-function LogoMark({ size = 20 }: { size?: number }) {
+function LogoMark({ size = 32 }: { size?: number }) {
   return (
-    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
-      <Sparkles size={size - 4} className="text-white" />
-    </div>
+    <BrandLogo size={size} className="flex-shrink-0" />
   )
 }
 

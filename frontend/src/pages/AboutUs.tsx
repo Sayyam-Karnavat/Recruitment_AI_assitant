@@ -6,6 +6,8 @@ import {
   Globe2, Award, FileText, Mail
 } from 'lucide-react'
 
+import BrandLogo from '../components/BrandLogo'
+
 export default function AboutUs() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col selection:bg-blue-100 selection:text-blue-900">
@@ -13,9 +15,7 @@ export default function AboutUs() {
       <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 font-bold text-lg text-slate-900 hover:opacity-85 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Sparkles size={16} />
-            </div>
+            <BrandLogo className="w-8 h-8" />
             <span className="font-extrabold tracking-tight">
               Upp<span className="text-blue-600">shot</span>
             </span>
@@ -90,9 +90,9 @@ export default function AboutUs() {
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Lock size={16} />
               </div>
-              <h3 className="font-bold text-sm text-slate-900">In-Memory Privacy</h3>
+              <h3 className="font-bold text-sm text-slate-900">Strict Data Sovereignty</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Zero disk footprint. Files stream exclusively in RAM during evaluation and are never retained on physical storage.
+                Zero AI training. Candidate resumes and recruiter evaluations are never used to train or fine-tune public foundation AI models.
               </p>
             </div>
 

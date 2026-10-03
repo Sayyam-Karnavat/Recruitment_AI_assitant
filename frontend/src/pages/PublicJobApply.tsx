@@ -9,6 +9,7 @@ import {
   HelpCircle, HeartHandshake, ChevronDown, ChevronUp
 } from 'lucide-react'
 import api from '../services/api'
+import BrandLogo from '../components/BrandLogo'
 
 interface PublicJob {
   id: string
@@ -396,9 +397,7 @@ export default function PublicJobApply() {
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 text-decoration-none group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-700 to-brand-500 flex items-center justify-center shadow-md shadow-brand-500/20 text-white font-black text-sm">
-              U
-            </div>
+            <BrandLogo className="w-8 h-8" />
             <span className="font-extrabold text-base tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
               Upp<span className="text-brand-600">shot</span> Careers
             </span>

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles, Home, ArrowLeft, Search, HelpCircle, Briefcase, Mail } from 'lucide-react'
+import BrandLogo from '../components/BrandLogo'
 
 export default function NotFound() {
   const navigate = useNavigate()
@@ -20,9 +21,7 @@ export default function NotFound() {
       <header className="relative z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 font-bold text-lg text-slate-900 hover:opacity-85 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Sparkles size={16} />
-            </div>
+            <BrandLogo className="w-8 h-8" />
             <span className="font-extrabold tracking-tight">
               Upp<span className="text-blue-600">shot</span>
             </span>

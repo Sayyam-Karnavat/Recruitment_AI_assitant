@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../hooks/useAuth'
+import BrandLogo from '../components/BrandLogo'
 import { Sparkles, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react'
 
 export default function Login() {
@@ -91,9 +92,7 @@ export default function Login() {
 
         {/* Brand */}
         <div className="relative z-10 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30">
-            <Sparkles size={18} />
-          </div>
+          <BrandLogo className="w-9 h-9" />
           <span className="font-extrabold text-xl tracking-tight text-white">
             Upp<span className="text-blue-400">shot</span>
           </span>
@@ -145,7 +144,7 @@ export default function Login() {
         <div className="relative z-10 space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
             <ShieldCheck size={16} className="text-blue-400" />
-            <span>Zero-Disk Memory Streaming · GDPR & ATS Compliant</span>
+            <span>Zero Foundation AI Training · Enterprise ATS Ready</span>
           </div>
           <p className="text-xs text-slate-400">
             Screen 1,000+ candidates in minutes with deterministic date resolution and custom prompt criteria.
@@ -157,9 +156,7 @@ export default function Login() {
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 max-w-lg mx-auto w-full">
         {/* Mobile Header */}
         <div className="flex lg:hidden items-center gap-2 mb-8 self-start">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-            <Sparkles size={16} />
-          </div>
+          <BrandLogo className="w-8 h-8" />
           <span className="font-bold text-lg text-slate-900">
             Upp<span className="text-blue-600">shot</span>
           </span>
@@ -194,7 +191,7 @@ export default function Login() {
               theme="outline"
               shape="rectangular"
               size="large"
-              width="100%"
+              width="320"
             />
           </div>
 

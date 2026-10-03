@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Shield, ArrowLeft, Lock, Eye, Server, RefreshCw, Sparkles } from 'lucide-react'
+import BrandLogo from '../components/BrandLogo'
 
 export default function PrivacyPolicy() {
   const lastUpdated = "September 26, 2026"
@@ -11,9 +12,7 @@ export default function PrivacyPolicy() {
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 font-bold text-lg text-slate-900 hover:opacity-85 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Sparkles size={16} />
-            </div>
+            <BrandLogo className="w-8 h-8" />
             <span className="font-extrabold tracking-tight">
               Upp<span className="text-blue-600">shot</span>
             </span>
@@ -86,7 +85,7 @@ export default function PrivacyPolicy() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600">
               <li><strong>Zero Model Training:</strong> Neither resume contents nor applicant personal information are ever used to train or fine-tune public foundation AI models.</li>
-              <li><strong>In-Memory Processing:</strong> Text extracted from uploaded resumes is analyzed dynamically in transient memory for scoring against job specifications.</li>
+              <li><strong>Workspace Isolation:</strong> Text extracted from uploaded resumes is evaluated exclusively for scoring against your specified job criteria with strict tenant isolation.</li>
               <li><strong>Confidentiality:</strong> All API communications between our services and LLM inference clusters are encrypted using TLS 1.3.</li>
             </ul>
           </section>

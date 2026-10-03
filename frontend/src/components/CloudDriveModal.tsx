@@ -278,7 +278,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
     setSuccessMsg(`Added ${newItems.length} cloud link(s) to selection. Click "Ingest & Screen" below to process.`);
   };
 
-  // Submit staged files for in-memory ingestion
+  // Submit staged files for batch ingestion
   const handleStartIngest = async () => {
     // Automatically merge any valid URLs currently typed into the input boxes
     const pendingUrls = manualLinkInputs
@@ -662,7 +662,7 @@ export const CloudDriveModal: React.FC<CloudDriveModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
           <p className="text-[11px] text-slate-500">
-            Files stream in-memory with zero disk footprint.
+            Files are imported securely and evaluated directly in your pipeline.
           </p>
           <div className="flex items-center gap-2">
             <button

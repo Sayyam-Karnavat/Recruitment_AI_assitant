@@ -155,7 +155,7 @@ async def google_auth(body: GoogleAuthRequest, request: Request, db=Depends(get_
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No email found in token")
     except ValueError as e:
         logger.error(f"Google token verification failed: {e}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid Google token: {e}")
 
     token = await _get_or_create_user(email.strip().lower(), db, source="google")
     return TokenResponse(access_token=token)

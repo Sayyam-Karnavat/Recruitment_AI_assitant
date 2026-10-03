@@ -113,17 +113,47 @@ async def verify_admin_user(
 
 
 def verify_google_token_payload(token_str: str) -> dict:
-    """Verify a Google OAuth ID token, supporting single or comma-separated client IDs."""
+    """Verify a Google OAuth ID token, supporting single or comma-separated client IDs with dynamic .env fallback."""
+    import logging
+    import os
+    from pathlib import Path
     from google.oauth2 import id_token
     from google.auth.transport import requests as google_requests
 
-    raw_cids = getattr(settings, "GOOGLE_CLIENT_ID", "") or ""
+    log = logging.getLogger("auth.google")
+
+    # Read latest GOOGLE_CLIENT_ID from backend/.env directly, OS env, or settings
+    env_cids = ""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if env_path.exists():
+        try:
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith("GOOGLE_CLIENT_ID="):
+                    env_cids = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+        except Exception as e:
+            log.warning(f"Could not read .env for GOOGLE_CLIENT_ID: {e}")
+
+    raw_cids = env_cids or os.environ.get("GOOGLE_CLIENT_ID") or getattr(settings, "GOOGLE_CLIENT_ID", "") or ""
     allowed_cids = [cid.strip() for cid in raw_cids.split(",") if cid.strip()]
 
-    if len(allowed_cids) == 1:
-        return id_token.verify_oauth2_token(token_str, google_requests.Request(), allowed_cids[0])
+    # Verify cryptographic signature using Google's public certificates with clock skew tolerance
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            token_str,
+            google_requests.Request(),
+            None,
+            clock_skew_in_seconds=60
+        )
+    except TypeError:
+        idinfo = id_token.verify_oauth2_token(token_str, google_requests.Request(), None)
+    token_aud = idinfo.get("aud")
 
-    idinfo = id_token.verify_oauth2_token(token_str, google_requests.Request(), None)
-    if allowed_cids and idinfo.get("aud") not in allowed_cids:
-        raise ValueError(f"Token audience {idinfo.get('aud')} does not match allowed client IDs")
+    if allowed_cids:
+        if token_aud not in allowed_cids:
+            log.error(f"Google token audience mismatch! Token aud: '{token_aud}' | Allowed CIDs: {allowed_cids}")
+            raise ValueError(f"Token audience {token_aud} does not match allowed client IDs: {allowed_cids}")
+        log.info(f"Google token verified successfully for aud: {token_aud}")
+
     return idinfo
