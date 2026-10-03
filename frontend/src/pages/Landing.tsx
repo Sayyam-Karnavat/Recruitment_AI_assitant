@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers, Cpu, Zap, Star, Lock, Eye, Server, RefreshCw, FileText, AlertCircle, ShieldAlert } from 'lucide-react'
+import {
+  Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Share2, Layers,
+  Cpu, Zap, Star, Lock, Eye, Server, RefreshCw, FileText, AlertCircle,
+  ShieldAlert, Menu, X, Building2, Mail, ChevronDown, HelpCircle,
+  Target, Clock, BarChart3, Database, Search
+} from 'lucide-react'
 
 function AnimatedCounter({ target, duration = 1400 }: { target: number; duration?: number }) {
   const [value, setValue] = useState(0)
@@ -22,6 +27,41 @@ function AnimatedCounter({ target, duration = 1400 }: { target: number; duration
 
   return <>{value}</>
 }
+
+const faqs = [
+  {
+    q: 'What is AI resume screening software and how does it work?',
+    a: 'AI resume screening software uses natural language processing (NLP) and large language models (LLMs) to automatically parse, evaluate, and rank candidate resumes against role requirements. Rather than relying on rigid keyword matches, Uppshot analyzes technical depth, project quality, verified career duration, and contextual role compatibility to generate an explainable 0-100% suitability score for every applicant in under 3 seconds.',
+  },
+  {
+    q: 'How does Uppshot differ from legacy ATS keyword filters?',
+    a: 'Legacy applicant tracking systems (ATS) depend on exact string matching. This frequently filters out qualified candidates who use alternative phrasing while rewarding applicants who engage in "keyword stuffing". Uppshot uses deep semantic intelligence to understand the context and substance of an applicant\'s experience, eliminating keyword bias and surface-level rejections.',
+  },
+  {
+    q: 'Does AI resume screening replace human recruiters and hiring managers?',
+    a: 'No. Uppshot is designed as an autonomous decision-support copilot for talent acquisition teams. It eliminates the manual drudgery of reading through hundreds of resumes by pre-ranking candidates and providing multi-dimensional score breakdowns. Human hiring managers make all final interview, evaluation, and hiring decisions with richer, unbiased data.',
+  },
+  {
+    q: 'How does Uppshot protect candidate data privacy and ensure zero model training?',
+    a: 'Uppshot adheres to an enterprise-grade In-Memory Zero-Disk architecture. Resumes are processed in transient memory streams without persistent caching on unencrypted disks. Furthermore, candidate personal data and resume content are strictly confidential and NEVER used to train, retrain, or fine-tune public foundation AI models (such as OpenAI or Azure models). Recruiters can also trigger permanent cascade deletion of candidate records at any time.',
+  },
+  {
+    q: 'How does the anti-cheat applicant verification prevent duplicate or spam submissions?',
+    a: 'When recruiters generate and share public application links on LinkedIn, job boards, or career portals, candidates authenticate via Google SSO or GitHub OAuth. This authenticates the applicant\'s true identity, preventing candidate spoofing, bot spam, and repeated submissions intended to manipulate screening algorithms.',
+  },
+  {
+    q: 'Can recruiters upload resumes in bulk from Google Drive, OneDrive, or ZIP files?',
+    a: 'Yes. Uppshot supports bulk ingestion of 100+ resumes via nested ZIP archives (both flat and folder-structured), direct drag-and-drop of PDF and DOCX files, and seamless one-click cloud imports through Google Drive Picker and Microsoft OneDrive. All files are extracted and processed asynchronously in parallel.',
+  },
+  {
+    q: 'How does AI-powered candidate screening reduce hiring bias?',
+    a: 'Human screening can unintentionally be influenced by cognitive shortcuts, formatting styles, school prestige, or demographic indicators. Uppshot evaluates applicants strictly against objective job parameters: core technical proficiencies, project depth, role longevity, and measurable impact, fostering a transparent, merit-first shortlisting process.',
+  },
+  {
+    q: 'What is Uppshot’s pricing model for screening candidates?',
+    a: 'Uppshot offers a transparent, pay-as-you-go credit wallet model starting as low as ₹0.79 per resume evaluated. Every newly verified recruiter receives 10 free screening credits upon sign-in. There are no mandatory monthly recurring subscription locks, hidden onboarding fees, or minimum seat requirements.',
+  },
+]
 
 const features = [
   {
@@ -54,6 +94,13 @@ const stats = [
 ]
 
 export default function Landing() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
+
+  const toggleFaq = (idx: number) => {
+    setOpenFaqIndex((prev) => (prev === idx ? null : idx))
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans relative overflow-hidden">
       {/* Background gradients */}
@@ -63,8 +110,8 @@ export default function Landing() {
       </div>
 
       {/* Navigation */}
-      <header className="relative z-10 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="relative z-30 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 text-decoration-none">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
               <Sparkles size={16} />
@@ -74,27 +121,109 @@ export default function Landing() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <a
-              href="#privacy"
-              className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors hidden sm:block"
-            >
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-6">
+            <Link to="/about" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              About Us
+            </Link>
+            <a href="#features" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              Features
+            </a>
+            <a href="#overview" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              AI Guide & Tech
+            </a>
+            <a href="#faq" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              FAQ
+            </a>
+            <Link to="/contact" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              Contact
+            </Link>
+            <Link to="/privacy" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
               Privacy Policy
-            </a>
-            <a
-              href="#terms"
-              className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors hidden sm:block"
-            >
-              Terms of Service
-            </a>
+            </Link>
+            <Link to="/terms" className="text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              Terms
+            </Link>
+          </nav>
+
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-2.5">
             <Link
               to="/login"
-              className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-sm shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-1.5"
+              className="text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl shadow-sm shadow-blue-500/25 hover:shadow-blue-500/35 transition-all flex items-center gap-1.5"
             >
-              Sign In <ArrowRight size={14} />
+              <span>Sign In</span> <ArrowRight size={14} />
             </Link>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Slide-Down Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-slate-200 bg-white/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-fade-in shadow-xl">
+            <Link
+              to="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <Building2 size={16} className="text-blue-600" />
+              <span>About Us</span>
+            </Link>
+            <a
+              href="#features"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <Cpu size={16} className="text-sky-600" />
+              <span>Platform Features</span>
+            </a>
+            <a
+              href="#overview"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <Target size={16} className="text-blue-600" />
+              <span>AI Guide & Tech</span>
+            </a>
+            <a
+              href="#faq"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <HelpCircle size={16} className="text-sky-600" />
+              <span>Frequently Asked Questions</span>
+            </a>
+            <Link
+              to="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <Mail size={16} className="text-indigo-600" />
+              <span>Contact & Support</span>
+            </Link>
+            <Link
+              to="/developer-docs"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+            >
+              <FileText size={16} className="text-emerald-600" />
+              <span>Developer API</span>
+            </Link>
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-2 px-3 text-xs text-slate-500">
+              <Link to="/privacy" onClick={() => setMobileMenuOpen(false)} className="hover:text-blue-600">Privacy Policy</Link>
+              <Link to="/terms" onClick={() => setMobileMenuOpen(false)} className="hover:text-blue-600">Terms of Service</Link>
+              <Link to="/refund-policy" onClick={() => setMobileMenuOpen(false)} className="hover:text-blue-600">Refund Policy</Link>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
@@ -232,31 +361,227 @@ export default function Landing() {
         </div>
 
         {/* Features Grid */}
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Built for Modern Recruitment Teams
-          </h2>
-          <p className="text-slate-600 max-w-lg mx-auto mt-2 text-sm">
-            Everything you need to automate resume intake, screening, and evaluation with enterprise accuracy.
-          </p>
-        </div>
+        <section id="features" className="scroll-mt-20">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              Built for Modern Recruitment Teams
+            </h2>
+            <p className="text-slate-600 max-w-lg mx-auto mt-2 text-sm">
+              Everything you need to automate resume intake, screening, and evaluation with enterprise accuracy.
+            </p>
+          </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left mb-20">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="bg-white border border-slate-200 hover:border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
-                  {f.icon}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left mb-20">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className="bg-white border border-slate-200 hover:border-blue-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
+                    {f.icon}
+                  </div>
+                  <h3 className="font-bold text-base text-slate-900 mb-2">{f.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">{f.desc}</p>
                 </div>
-                <h3 className="font-bold text-base text-slate-900 mb-2">{f.title}</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">{f.desc}</p>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 1000-Word SEO In-Depth Guide & Architecture Overview Section */}
+        <section id="overview" className="text-left mb-24 pt-12 border-t border-slate-200/80 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold mb-3">
+              <Target size={14} className="text-blue-600" />
+              <span>Enterprise Recruitment Intelligence Standard</span>
             </div>
-          ))}
-        </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              The Modern Standard for AI Resume Screening Software
+            </h2>
+            <p className="text-slate-600 text-sm mt-3 leading-relaxed">
+              How next-generation semantic candidate matching, explainable AI scoring, and automated applicant ranking transform hiring efficiency for modern recruitment teams.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {/* Card 1: Shift & Legacy ATS Flaws */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <Search size={20} />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900">
+                1. The Modern Hiring Dilemma & Why Legacy ATS Filters Fail
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Modern talent acquisition teams face an unprecedented operational bottleneck: the sheer volume of inbound job applications. The proliferation of one-click job applications on professional networks such as LinkedIn and automated career aggregators has generated a deluge of applicants for every open requisition. Corporate recruiters and talent acquisition leaders routinely receive between 300 and 1,500 resumes for a single technical or executive position. However, industry benchmarking indicates that up to 75% to 88% of these applicants do not satisfy the minimum core qualifications required for the role.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Historically, recruiting teams had only two undesirable options. The first was manual resume screening, where human recruiters spend an average of six to eight seconds scanning each curriculum vitae—requiring over 40 recruiter hours merely to assemble an initial shortlist. The second was legacy automated filters built on literal string matching and Boolean keyword search. For example, if a job description specifies experience with "Kubernetes orchestration," an applicant with seven years of deep containerization experience who describes their background using "K8s cluster management and microservice autoscaling" might be assigned a zero score or rejected by a legacy ATS parser. Conversely, underqualified candidates frequently utilize "keyword stuffing" to exploit simplistic scoring heuristics.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Uppshot eliminates this failure mode entirely.</strong> As an advanced <span className="text-blue-700 font-semibold">AI resume screening software</span> and <span className="text-blue-700 font-semibold">automated resume screening tool</span>, Uppshot utilizes state-of-the-art Natural Language Processing (NLP) and contextual large language models (LLMs) to analyze conceptual depth, project scope, and technical coherence rather than superficial words.
+              </p>
+            </div>
+
+            {/* Card 2: Multi-Dimensional Evaluation */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <BarChart3 size={20} />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900">
+                2. Multi-Dimensional Semantic Evaluation: How Uppshot Scores Talent
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Rather than reducing a candidate to a single arbitrary percentage or a binary keyword match, Uppshot evaluates every applicant across four rigorous, customizable evaluation dimensions designed to mirror the holistic judgment of a senior engineering manager or talent partner:
+              </p>
+              <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4">
+                <li>
+                  <strong>Technical Depth & Core Competency:</strong> Analyzes the substantive proficiency of the candidate's reported skill stack, distinguishing between superficial mentions of frameworks and hands-on architecture, production deployment, and system maintenance.
+                </li>
+                <li>
+                  <strong>Relevant Experience Duration & Career Trajectory:</strong> Measures verified career longevity, progressive role promotion, tenure consistency, and how closely past industry experience aligns with the specific seniority of the open position.
+                </li>
+                <li>
+                  <strong>Project Complexity & Measurable Impact:</strong> Examines the scale, technical difficulty, and quantifiable business outcomes achieved in previous initiatives (such as latency reductions, distributed system scaling, or team leadership).
+                </li>
+                <li>
+                  <strong>Role & Team Compatibility:</strong> Evaluates how well the applicant's domain familiarity, methodology exposure (e.g., Agile, CI/CD, microservices, regulatory compliance), and cross-functional leadership fit the operational demands of the hiring team.
+                </li>
+              </ul>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Each applicant receives an objective, normalized composite score from 0 to 100%, accompanied by an <span className="text-blue-700 font-semibold">explainable AI scorecard</span> that outlines key strengths, identified skill gaps, and custom technical interview questions tailored specifically to their resume. This empowers talent partners to execute <span className="text-blue-700 font-semibold">unbiased AI talent evaluation</span> across diverse applicant pools.
+              </p>
+            </div>
+
+            {/* Card 3: Privacy & Zero-Disk Architecture */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <Database size={20} />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900">
+                3. Architectural Sovereignty: In-Memory Stream Processing & Absolute Data Privacy
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Enterprise recruitment involves highly confidential candidate information, including contact details, compensation history, employment timelines, and proprietary portfolio assets. Legacy recruitment software frequently stores unencrypted resume files across third-party disks, creating compliance liabilities and data leakage risks.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Uppshot is engineered from the ground up with an uncompromising <strong>In-Memory Zero-Disk Architecture</strong>. When candidates submit resumes via public links or recruiters upload documents in bulk (including nested ZIP archives, Google Drive links, and OneDrive shares), the files are streamed and evaluated dynamically in volatile RAM. No unencrypted document caches or temporary scratch files linger on disk storage.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Furthermore, Uppshot enforces strict corporate data sovereignty: candidate resumes and evaluation prompts are <strong>never utilized to train, retrain, or fine-tune public foundation AI models</strong> (such as OpenAI or Azure models). Recruiters retain complete data ownership, with instantaneous cascade deletion capabilities that permanently purge candidate records and scores upon request.
+              </p>
+            </div>
+
+            {/* Card 4: Intake, Webhooks & Economics */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <Zap size={20} />
+              </div>
+              <h3 className="font-bold text-lg text-slate-900">
+                4. Direct Candidate Intake, Real-Time Webhooks & Pay-As-You-Go Economics
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                A significant challenge in talent acquisition is the disconnect between outbound recruitment campaigns and candidate intake. Recruiters often advertise openings on LinkedIn, professional communities, or Slack groups, only to receive a disorganized flood of emails and unparsed documents.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Uppshot bridges this gap with one-click LinkedIn-ready public career links. Recruiters generate a dedicated, high-converting application page for any job posting in seconds. To eliminate fraudulent duplicate applications and bot attacks, Uppshot incorporates anti-cheat OAuth verification: applicants authenticate with their verified Google or GitHub credentials before submitting their resume. This locks application integrity, verifies candidate identity, and ensures that every submission in your recruiter studio is genuine.
+              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Unlike legacy enterprise platforms that lock organizations into rigid annual contracts ranging from $8,000 to over $25,000 annually with mandatory onboarding fees, Uppshot operates on a transparent, <strong>pay-as-you-go credit wallet model</strong> (scaling as low as ₹0.79 per candidate screened). Every newly registered recruiter receives 10 complimentary screening credits immediately upon signup, with zero recurring subscription locks.
+              </p>
+            </div>
+          </div>
+
+          {/* Business Impact Banner */}
+          <div className="mt-8 p-6 sm:p-8 bg-gradient-to-r from-blue-50 via-white to-sky-50 border border-blue-200/80 rounded-2xl max-w-5xl mx-auto shadow-xs">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-100/70 px-2.5 py-1 rounded-md">
+                  Measurable Operational ROI
+                </span>
+                <h4 className="text-xl font-extrabold text-slate-900">
+                  Slashing Time-to-Hire by 10x with High-Fidelity Accuracy
+                </h4>
+                <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                  By automating the most labor-intensive phase of the hiring funnel, Uppshot delivers transformative operational improvements for recruitment organizations. Benchmarked customer deployments demonstrate an average 10x reduction in resume triage duration: an inbound batch of 200 candidates that previously consumed 16 hours of recruiter review is screened, ranked, and organized into actionable shortlists in under 60 seconds. This rapid turnaround slashes time-to-first-interview from twelve days down to under 48 hours, enabling hiring teams to capture premier industry talent before competitors.
+                </p>
+              </div>
+              <Link
+                to="/login"
+                className="shrink-0 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/25 transition-all flex items-center gap-1.5"
+              >
+                <span>Experience Semantic AI</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* SEO Friendly FAQ Section with Interactive Accordions */}
+        <section id="faq" className="text-left mb-24 pt-12 border-t border-slate-200/80 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold mb-3">
+              <HelpCircle size={14} className="text-blue-600" />
+              <span>Frequently Asked Questions</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              Common Questions About AI Resume Screening
+            </h2>
+            <p className="text-slate-600 text-sm mt-3 leading-relaxed">
+              Find answers to the most common questions regarding automated candidate screening, data privacy, ATS keyword matching, and recruitment efficiency.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto space-y-3.5">
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx
+              return (
+                <div
+                  key={faq.q}
+                  className="bg-white border border-slate-200 hover:border-blue-300 rounded-2xl shadow-xs transition-all duration-200 overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleFaq(idx)}
+                    aria-expanded={isOpen}
+                    aria-controls={`faq-answer-${idx}`}
+                    className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 font-semibold text-slate-900 hover:text-blue-600 transition-colors focus:outline-none"
+                  >
+                    <span className="text-sm sm:text-base leading-snug">{faq.q}</span>
+                    <span
+                      className={`shrink-0 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 bg-blue-50 text-blue-600' : ''
+                      }`}
+                    >
+                      <ChevronDown size={18} />
+                    </span>
+                  </button>
+
+                  {isOpen && (
+                    <div
+                      id={`faq-answer-${idx}`}
+                      className="px-5 sm:px-6 pb-6 pt-1 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 animate-fade-in"
+                    >
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Quick Support Link */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-slate-500">
+              Have a question that is not covered here?{' '}
+              <Link to="/contact" className="text-blue-600 font-semibold hover:underline">
+                Contact our recruitment engineering team
+              </Link>{' '}
+              for specialized deployment guidance.
+            </p>
+          </div>
+        </section>
 
         {/* Privacy Policy & Data Governance Section */}
         <section id="privacy" className="text-left mb-24 pt-12 border-t border-slate-200/80 scroll-mt-20">
@@ -467,21 +792,22 @@ export default function Landing() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-200 bg-white py-8 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Uppshot</span>
-            <span>— Precision AI Recruitment Intelligence</span>
+      <footer className="relative z-10 border-t border-slate-200 bg-white py-10 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <span className="font-bold text-slate-800 text-sm">Uppshot</span>
+            <span className="hidden sm:inline text-slate-300">•</span>
+            <span>Precision AI Recruitment Intelligence</span>
           </div>
-          <div className="flex flex-wrap items-center gap-6">
-            <a href="#privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
-            <a href="#terms" className="hover:text-blue-600 transition-colors">Terms of Service</a>
-            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Full Policy Page</Link>
-            <Link to="/terms" className="hover:text-blue-600 transition-colors">Full Terms Page</Link>
-            <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5">
+            <Link to="/about" className="hover:text-blue-600 transition-colors font-medium text-slate-700">About Us</Link>
             <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>
+            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+            <Link to="/refund-policy" className="hover:text-blue-600 transition-colors">Refund Policy</Link>
+            <Link to="/developer-docs" className="hover:text-blue-600 transition-colors">Developer API</Link>
           </div>
-          <div>© {new Date().getFullYear()} Uppshot. All rights reserved.</div>
+          <div className="text-slate-400">© {new Date().getFullYear()} Uppshot. All rights reserved.</div>
         </div>
       </footer>
     </div>

@@ -16,6 +16,9 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import RefundPolicy from './pages/RefundPolicy'
 import ContactUs from './pages/ContactUs'
+import AboutUs from './pages/AboutUs'
+import NotFound from './pages/NotFound'
+import ServerError from './pages/ServerError'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin'
 
@@ -41,10 +44,16 @@ export default function App() {
             <Route path="/" element={<PublicOnlyRoute><Landing /></PublicOnlyRoute>} />
             <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
             <Route path="/careers/:jobId" element={<PublicJobApply />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/about-us" element={<Navigate to="/about" replace />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
             <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/terms-and-conditions" element={<Navigate to="/terms" replace />} />
             <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/contact" element={<ContactUs />} />
+            <Route path="/contact-us" element={<Navigate to="/contact" replace />} />
+            <Route path="/500" element={<ServerError />} />
           </Route>
 
           {/* Protected employer/HR routes */}
@@ -62,7 +71,8 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Custom Branded 404 Not Found Catch-All */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </WalletProvider>
     </AuthProvider>

@@ -111,6 +111,35 @@ async def health_check():
     }
 
 
+# Custom clean JSON exception handlers (prevents default host/ICP error pages)
+from fastapi import Request, HTTPException, status
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "status_code": exc.status_code,
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def custom_unhandled_exception_handler(request: Request, exc: Exception):
+    logging.exception(f"Unhandled server exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "An unexpected server error occurred. Our engineers have been alerted.",
+            "status_code": 500,
+            "path": request.url.path,
+        },
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=True)

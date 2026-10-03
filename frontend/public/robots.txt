@@ -1,0 +1,23 @@
+# robots.txt for Uppshot Platform (https://www.uppshot.com)
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /refund-policy
+Allow: /login
+Allow: /careers/
+
+# Disallow private recruiter studio, admin console, and system routes
+Disallow: /dashboard
+Disallow: /jobs/
+Disallow: /settings
+Disallow: /developer-docs
+Disallow: /admin
+Disallow: /admin/
+Disallow: /500
+
+# Crawl-delay and sitemap declaration
+Crawl-delay: 1
+Sitemap: https://www.uppshot.com/sitemap.xml

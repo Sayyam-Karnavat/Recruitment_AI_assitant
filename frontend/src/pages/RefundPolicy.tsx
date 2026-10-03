@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { RotateCcw, ArrowLeft, CheckCircle2, Clock, HelpCircle } from 'lucide-react'
+import { RotateCcw, ArrowLeft, CheckCircle2, Clock, HelpCircle, Sparkles } from 'lucide-react'
 
 export default function RefundPolicy() {
   const lastUpdated = "September 26, 2026"
@@ -10,11 +10,13 @@ export default function RefundPolicy() {
       {/* Top Navbar */}
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-lg text-slate-900 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-              U
+          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg text-slate-900 hover:opacity-85 transition-opacity">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <Sparkles size={16} />
             </div>
-            <span>Upp<span className="text-blue-600">shot</span></span>
+            <span className="font-extrabold tracking-tight">
+              Upp<span className="text-blue-600">shot</span>
+            </span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
             <ArrowLeft size={14} /> Back to Home
@@ -82,6 +84,24 @@ export default function RefundPolicy() {
           </section>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-500 mt-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800">Uppshot</span>
+            <span>— Precision AI Recruitment Intelligence</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-5">
+            <Link to="/about" className="hover:text-blue-600 transition-colors">About Us</Link>
+            <Link to="/contact" className="hover:text-blue-600 transition-colors">Contact Us</Link>
+            <Link to="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+            <Link to="/refund-policy" className="hover:text-blue-600 transition-colors font-semibold text-blue-600">Refund Policy</Link>
+          </div>
+          <div>© {new Date().getFullYear()} Uppshot. All rights reserved.</div>
+        </div>
+      </footer>
     </div>
   )
 }

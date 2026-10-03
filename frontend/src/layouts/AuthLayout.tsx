@@ -184,6 +184,47 @@ export default function AuthLayout() {
               </Link>
             )
           })}
+
+          <div className="pt-3 pb-1 border-t border-slate-100 my-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3">
+              Account & Tools
+            </span>
+          </div>
+
+          <Link
+            to="/settings"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isActive('/settings')
+                ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-100 shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <SettingsIcon size={18} className={isActive('/settings') ? 'text-blue-600' : 'text-slate-400'} />
+            <span>Workspace Settings</span>
+          </Link>
+
+          <Link
+            to="/developer-docs"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isActive('/developer-docs')
+                ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-100 shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Code2 size={18} className={isActive('/developer-docs') ? 'text-blue-600' : 'text-slate-400'} />
+            <span>Developer API</span>
+          </Link>
+
+          <Link
+            to="/contact"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
+          >
+            <ShieldCheck size={18} className="text-slate-400" />
+            <span>Support & Helpdesk</span>
+          </Link>
         </nav>
 
         {/* Mobile Bottom Sidebar Action — Sign Out */}
@@ -220,7 +261,7 @@ export default function AuthLayout() {
           {/* Wallet credit badge & top-up action */}
           <button
             onClick={openWalletModal}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full border transition-all shadow-sm ${
               isUnlimited
                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300 text-blue-700'
                 : billingMode === 'payg_monthly'
@@ -235,27 +276,30 @@ export default function AuthLayout() {
                   <InfinityIcon size={12} strokeWidth={3} />
                 </span>
                 <span className="text-xs font-bold tracking-tight text-blue-900">
-                  Unlimited VIP Pro
+                  <span className="hidden sm:inline">Unlimited VIP Pro</span>
+                  <span className="sm:hidden">VIP</span>
                 </span>
-                <span className="text-[10px] font-bold uppercase bg-blue-100/80 text-blue-700 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold uppercase bg-blue-100/80 text-blue-700 px-2 py-0.5 rounded-full hidden sm:inline">
                   No Limits
                 </span>
               </>
             ) : billingMode === 'payg_monthly' ? (
               <>
-                <CreditCard size={14} className="text-blue-600" />
+                <CreditCard size={14} className="text-blue-600 flex-shrink-0" />
                 <span className="text-xs font-bold text-slate-800">
-                  PAYG {cardLast4 ? `(•••• ${cardLast4})` : 'Active'}
+                  <span className="hidden sm:inline">PAYG {cardLast4 ? `(•••• ${cardLast4})` : 'Active'}</span>
+                  <span className="sm:hidden">PAYG</span>
                 </span>
                 <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs">
-                  ₹0.79 / resume
+                  <span className="hidden sm:inline">₹0.79 / resume</span>
+                  <span className="sm:hidden">Active</span>
                 </span>
               </>
             ) : (
               <>
-                <Sparkles size={14} className="text-blue-600" />
+                <Sparkles size={14} className="text-blue-600 flex-shrink-0" />
                 <span className="text-xs font-bold text-slate-800">
-                  {credits} Credits
+                  {credits} <span className="hidden sm:inline">Credits</span>
                 </span>
                 <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs hover:bg-blue-700">
                   + Top Up
